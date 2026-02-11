@@ -1,0 +1,36 @@
+package com.zeronovel.gardroid.bridge;
+
+public class NativeLib {
+
+    static {
+        System.loadLibrary("gardroid");
+    }
+
+    /**
+     * Fungsi Native untuk membaca file Archive (XP3/PFS/dll).
+     * @param filePath Lokasi file di HP.
+     * @return Array String berisi nama-nama file.
+     */
+
+    public native String[] getArchiveFileList(String filePath);
+
+    public native byte[] getFileBuffer(String archivePath, String internalPath);
+
+    public native int[] getTlgPreview(String archivePath, String internalPath);
+
+    public native int[] getBgiPreview(String archivePath, String internalPath);
+    public native boolean extractFile(String archivePath, String internalPath, String outputPath);
+
+    public native long initParser(String archivePath);
+    public native boolean extractFileFromPointer(long parserPointer, String internalPath, String outputPath);
+    public native void closeParser(long parserPointer);
+
+    public native String[] detectAstLanguages(String filePath);
+    public native int extractAstText(String inputPath, String outputPath, String language);
+    public native  int extractScnText(String inputPath, String outputPath);
+    public native boolean repackXp3(String sourceFolder, String outputFile, RepackListener listener);
+    public native boolean repackPfs(String sourceFolder, String outputFile, RepackListener listener);
+    public interface RepackListener {
+        void onProgress(String currentFile, int current, int total);
+    }
+}
