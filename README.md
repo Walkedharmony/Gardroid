@@ -20,7 +20,7 @@ Saat ini Gardroid bisa membaca dan memproses format dari beberapa engine VN beri
 
 ### ⚙️ Artemis Engine
 * **.pfs Archives:** Ekstrak dan repack arsip PFS.
-  **.ast Scripts:** Ekstrak teks dialog dan deteksi bahasa otomatis dari file skenario AST pakai Regex.
+* **.ast Scripts:** Ekstrak teks dialog dan deteksi bahasa otomatis dari file skenario AST pakai Regex.
 
 ### ⚙️ Ethornell / M2 Engine (BGI)
 * **.arc Archives:** Parsing dan ekstrak PackFile / BURIKO ARC20.
@@ -48,3 +48,4 @@ Project ini open-source di bawah **MIT License** [LICENSE](LICENSE)
 ## 🙏 Credits
 * Referensi code [GARbro](https://github.com/morkt/GARbro).
 * Author Zero Novel | [Walkedharmony](https://github.com/Walkedharmony)
+
