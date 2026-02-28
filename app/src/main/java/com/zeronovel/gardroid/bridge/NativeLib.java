@@ -28,6 +28,9 @@ public class NativeLib {
     public native String[] detectAstLanguages(String filePath);
     public native int extractAstText(String inputPath, String outputPath, String language);
     public native  int extractScnText(String inputPath, String outputPath);
+    public native int extractKsText(String inputPath, String outputPath);
+    public native int repackKsText(String ksPath, String txtPath, String outPath);
+    public native int repackAst(String astPath, String txtPath, String outPath, String targetLang);
     public native boolean repackXp3(String sourceFolder, String outputFile, RepackListener listener);
     public native boolean repackPfs(String sourceFolder, String outputFile, RepackListener listener);
     public interface RepackListener {

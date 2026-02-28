@@ -26,7 +26,7 @@ public class FileModel {
 
         this.isPfs = lowerName.endsWith(".pfs") || lowerName.matches(".*\\.pfs\\.\\d{3}$");
 
-        this.isBgi = lowerName.endsWith(".arc");
+        this.isBgi = lowerName.endsWith(".arc") || lowerName.endsWith(".ar2");
 
         this.isVirtual = false;
     }

@@ -34,6 +34,8 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         utils/PSBFILE/psb.cpp
         utils/PSBFILE/ScnParser.cpp
         utils/KirikiriKS.cpp
+        utils/AstPacker.cpp
+        formats/ArcParser.cpp
         formats/PfsParser.cpp
         formats/BgiParser.cpp
         formats/PfsPacker.cpp

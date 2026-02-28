@@ -155,9 +155,9 @@ public class ExplorerAdapter extends RecyclerView.Adapter<ExplorerAdapter.FileVi
             });
 
             binding.getRoot().setOnLongClickListener(v -> {
-                if (!item.isVirtual) {
-                    return false;
-                }
+               // if (!item.isVirtual) {
+                //    return false;
+                //}
                 if (!isSelectionMode) {
                     setSelectionMode(true);
                     item.isSelected = true;

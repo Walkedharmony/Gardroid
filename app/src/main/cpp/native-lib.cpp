@@ -13,11 +13,13 @@
 #include "formats/Xp3Packer.h"
 #include "formats/BgiParser.h"
 #include "formats/PfsPacker.h"
+#include "formats/ArcParser.h"
 #include "utils/TlgDecoder.h"
 #include "utils/BgiImageDecoder.h"
 #include "utils/AstParser.h"
 #include "utils/PSBFILE/ScnParser.h"
 #include "utils/KirikiriKS.h"
+#include "utils/AstPacker.h"
 
 #define TAG "GardroidNative"
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, TAG, __VA_ARGS__)
@@ -71,6 +73,93 @@ std::string utf8ToSjis(JNIEnv* env, const std::string& utf8Data) {
     return result;
 }
 
+bool isValidUtf8(const std::string& string) {
+    const unsigned char* bytes = (const unsigned char*)string.c_str();
+    while (*bytes) {
+        if ((// ASCII
+                *bytes == 0x09 ||
+                *bytes == 0x0A ||
+                *bytes == 0x0D ||
+                (*bytes >= 0x20 && *bytes <= 0x7E)
+        )
+                ) {
+            bytes += 1;
+            continue;
+        }
+
+        if (// Non-overlong 2-byte
+                (*bytes >= 0xC2 && *bytes <= 0xDF) &&
+                (*(bytes+1) >= 0x80 && *(bytes+1) <= 0xBF)
+                ) {
+            bytes += 2;
+            continue;
+        }
+
+        if (// Excluding overlongs
+                *bytes == 0xE0 &&
+                (*(bytes+1) >= 0xA0 && *(bytes+1) <= 0xBF) &&
+                (*(bytes+2) >= 0x80 && *(bytes+2) <= 0xBF)
+                ) {
+            bytes += 3;
+            continue;
+        }
+
+        if (// Straight 3-byte
+                (((*bytes >= 0xE1 && *bytes <= 0xEC) ||
+                  *bytes == 0xEE ||
+                  *bytes == 0xEF) &&
+                 (*(bytes+1) >= 0x80 && *(bytes+1) <= 0xBF) &&
+                 (*(bytes+2) >= 0x80 && *(bytes+2) <= 0xBF)
+                )
+                ) {
+            bytes += 3;
+            continue;
+        }
+
+        if (// Excluding overlongs
+                *bytes == 0xED &&
+                (*(bytes+1) >= 0x80 && *(bytes+1) <= 0x9F) &&
+                (*(bytes+2) >= 0x80 && *(bytes+2) <= 0xBF)
+                ) {
+            bytes += 3;
+            continue;
+        }
+
+        if (// Planes 1-3
+                *bytes == 0xF0 &&
+                (*(bytes+1) >= 0x90 && *(bytes+1) <= 0xBF) &&
+                (*(bytes+2) >= 0x80 && *(bytes+2) <= 0xBF) &&
+                (*(bytes+3) >= 0x80 && *(bytes+3) <= 0xBF)
+                ) {
+            bytes += 4;
+            continue;
+        }
+
+        if (// Planes 4-15
+                (*bytes >= 0xF1 && *bytes <= 0xF3) &&
+                (*(bytes+1) >= 0x80 && *(bytes+1) <= 0xBF) &&
+                (*(bytes+2) >= 0x80 && *(bytes+2) <= 0xBF) &&
+                (*(bytes+3) >= 0x80 && *(bytes+3) <= 0xBF)
+                ) {
+            bytes += 4;
+            continue;
+        }
+
+        if (// Plane 16
+                *bytes == 0xF4 &&
+                (*(bytes+1) >= 0x80 && *(bytes+1) <= 0x8F) &&
+                (*(bytes+2) >= 0x80 && *(bytes+2) <= 0xBF) &&
+                (*(bytes+3) >= 0x80 && *(bytes+3) <= 0xBF)
+                ) {
+            bytes += 4;
+            continue;
+        }
+
+        return false; // Invalid UTF-8 detected
+    }
+    return true;
+}
+
 bool isPfsArchive(const char* path) {
     FILE* f = fopen(path, "rb");
     if (!f) return false;
@@ -91,8 +180,24 @@ bool isBgiArchive(const char* path) {
     return false;
 }
 
+bool isWillArcArchive(const char* path) {
+    if (isBgiArchive(path)) return false; // Pastikan bukan BGI
+
+    FILE* f = fopen(path, "rb");
+    if (!f) return false;
+
+    uint32_t count = 0, index_size = 0;
+    if (fread(&count, 1, 4, f) == 4 && fread(&index_size, 1, 4, f) == 4) {
+        fclose(f);
+        // Validasi sederhana (karena tidak ada signature teks)
+        return count > 0 && count < 200000 && index_size > 0;
+    }
+    fclose(f);
+    return false;
+}
+
 struct ArchiveHandle {
-    enum Type { XP3, PFS, BGI };
+    enum Type { XP3, PFS, BGI, ARC };
     Type type;
     void* parserInstance;
 };
@@ -131,9 +236,31 @@ Java_com_zeronovel_gardroid_bridge_NativeLib_getArchiveFileList(
             if (parser.parse()) {
                 parseSuccess = true;
                 for (const auto& entry : parser.get_file_list()) {
-                    std::string utf8Name = sjisToUtf8(env, entry.name);
-                    std::replace(utf8Name.begin(), utf8Name.end(), '\\', '/');
-                    unifiedList.push_back(utf8Name + "|" + std::to_string(entry.size));
+                    std::string finalName;
+
+                    // PERBAIKAN: Cek dulu apakah nama file sudah UTF-8?
+                    if (isValidUtf8(entry.name)) {
+                        finalName = entry.name; // Gunakan langsung
+                    } else {
+                        finalName = sjisToUtf8(env, entry.name); // Convert jika SJIS
+                    }
+
+                    std::replace(finalName.begin(), finalName.end(), '\\', '/');
+                    unifiedList.push_back(finalName + "|" + std::to_string(entry.size));
+                }
+            }
+        }
+    }
+    else if (isWillArcArchive(nativePath)) {
+        FILE* file = fopen(nativePath, "rb");
+        if (file) {
+            ArcParser parser(file);
+            if (parser.parse()) {
+                parseSuccess = true;
+                for (const auto& entry : parser.get_file_list()) {
+                    std::string finalName = entry.name; // ArcParser kita sudah output UTF-8
+                    std::replace(finalName.begin(), finalName.end(), '\\', '/');
+                    unifiedList.push_back(finalName + "|" + std::to_string(entry.size));
                 }
             }
         }
@@ -200,10 +327,21 @@ Java_com_zeronovel_gardroid_bridge_NativeLib_extractFile(
         else if (isPfsArchive(cArchive)) {
             PfsParser parser(file);
             if (parser.parse()) {
-                std::string sjisName = utf8ToSjis(env, utf8Internal);
-                success = parser.extractFile(sjisName, cOutput);
+                // --- PERBAIKAN LOGIKA PENCARIAN (FALLBACK) ---
+                if (parser.extractFile(utf8Internal, cOutput)) {
+                    success = true;
+                } else {
+                    std::string sjisName = utf8ToSjis(env, utf8Internal);
+                    success = parser.extractFile(sjisName, cOutput);
+                }
+                // ---------------------------------------------
             }
-        } else {
+        }
+        else if (isWillArcArchive(cArchive)) {
+            ArcParser parser(file);
+            if (parser.parse()) success = parser.extractFile(utf8Internal, cOutput);
+        }
+        else {
             Xp3Parser parser(file);
             if (parser.parse()) {
                 std::vector<char> buffer;
@@ -281,7 +419,19 @@ Java_com_zeronovel_gardroid_bridge_NativeLib_initParser(
             delete handle;
             handle = nullptr;
         }
-    } else {
+    }
+    else if (isWillArcArchive(path)) {
+        ArcParser* parser = new ArcParser(file);
+        if (parser->parse()) {
+            handle->type = ArchiveHandle::ARC;
+            handle->parserInstance = parser;
+        } else {
+            delete parser;
+            delete handle;
+            handle = nullptr;
+        }
+    }
+    else {
         Xp3Parser* parser = new Xp3Parser(file);
         if (parser->parse()) {
             handle->type = ArchiveHandle::XP3;
@@ -323,9 +473,18 @@ Java_com_zeronovel_gardroid_bridge_NativeLib_extractFileFromPointer(
     }
     else if (handle->type == ArchiveHandle::PFS) {
         PfsParser* parser = static_cast<PfsParser*>(handle->parserInstance);
-        std::string sjisName = utf8ToSjis(env, utf8Internal);
-        success = parser->extractFile(sjisName, cOutput);
-    } else {
+        if (parser->extractFile(utf8Internal, cOutput)) {
+            success = true;
+        } else {
+            std::string sjisName = utf8ToSjis(env, utf8Internal);
+            success = parser->extractFile(sjisName, cOutput);
+        }
+    }
+    else if (handle->type == ArchiveHandle::ARC) {
+        ArcParser* parser = static_cast<ArcParser*>(handle->parserInstance);
+        success = parser->extractFile(utf8Internal, cOutput);
+    }
+    else {
         Xp3Parser* parser = static_cast<Xp3Parser*>(handle->parserInstance);
         std::vector<char> buffer;
         if (parser->extractToBuffer(utf8Internal, buffer)) {
@@ -374,7 +533,11 @@ Java_com_zeronovel_gardroid_bridge_NativeLib_closeParser(
         }
         else if (handle->type == ArchiveHandle::PFS) {
             delete static_cast<PfsParser*>(handle->parserInstance);
-        } else {
+        }
+        else if (handle->type == ArchiveHandle::ARC) {
+            delete static_cast<ArcParser*>(handle->parserInstance);
+        }
+        else {
             delete static_cast<Xp3Parser*>(handle->parserInstance);
         }
 
@@ -410,13 +573,32 @@ Java_com_zeronovel_gardroid_bridge_NativeLib_getFileBuffer(
         else if (isPfsArchive(cArchive)) {
             PfsParser parser(file);
             if (parser.parse()) {
-                std::string sjisName = utf8ToSjis(env, utf8Internal);
-                success = parser.extractToBuffer(sjisName, buffer);
+                // --- PERBAIKAN LOGIKA PENCARIAN (FALLBACK) ---
+                // 1. Coba cari file menggunakan nama UTF-8 (Raw dari Java)
+                if (parser.extractToBuffer(utf8Internal, buffer)) {
+                    success = true;
+                }
+                    // 2. Jika gagal, convert ke Shift-JIS dan cari lagi
+                else {
+                    std::string sjisName = utf8ToSjis(env, utf8Internal);
+                    if (parser.extractToBuffer(sjisName, buffer)) {
+                        success = true;
+                    }
+                }
+                // ---------------------------------------------
             }
-        } else {
+        }
+        else if (isWillArcArchive(cArchive)) {
+            ArcParser parser(file);
+            if (parser.parse()) {
+                success = parser.extractToBuffer(utf8Internal, buffer);
+            }
+        }
+        else {
             Xp3Parser parser(file);
             if (parser.parse()) success = parser.extractToBuffer(utf8Internal, buffer);
         }
+        fclose(file); // Pastikan file ditutup
     }
 
     env->ReleaseStringUTFChars(archivePath, cArchive);
@@ -665,6 +847,61 @@ Java_com_zeronovel_gardroid_bridge_NativeLib_extractScnText(
 
     env->ReleaseStringUTFChars(inputPath, cInput);
     env->ReleaseStringUTFChars(outputPath, cOutput);
+
+    return result;
+}
+
+extern "C" JNIEXPORT jint JNICALL
+Java_com_zeronovel_gardroid_bridge_NativeLib_repackAst(
+        JNIEnv* env, jobject /* this */,
+        jstring astPath, jstring txtPath, jstring outPath, jstring targetLang) {
+
+    const char* cAstPath = env->GetStringUTFChars(astPath, nullptr);
+    const char* cTxtPath = env->GetStringUTFChars(txtPath, nullptr);
+    const char* cOutPath = env->GetStringUTFChars(outPath, nullptr);
+    const char* cLang = env->GetStringUTFChars(targetLang, nullptr);
+
+    std::string sAst(cAstPath);
+    std::string sTxt(cTxtPath);
+    std::string sOut(cOutPath);
+    std::string sLang(cLang);
+    env->ReleaseStringUTFChars(astPath, cAstPath);
+    env->ReleaseStringUTFChars(txtPath, cTxtPath);
+    env->ReleaseStringUTFChars(outPath, cOutPath);
+    env->ReleaseStringUTFChars(targetLang, cLang);
+
+    return AstPacker::repack(sAst, sTxt, sOut, sLang);
+}
+
+extern "C" JNIEXPORT jint JNICALL
+Java_com_zeronovel_gardroid_bridge_NativeLib_extractKsText(
+        JNIEnv* env, jobject /* this */, jstring inputPath, jstring outputPath) {
+
+    const char *cInput = env->GetStringUTFChars(inputPath, 0);
+    const char *cOutput = env->GetStringUTFChars(outputPath, 0);
+
+    int lines = KirikiriParser::ExtractTextToFile(cInput, cOutput);
+
+    env->ReleaseStringUTFChars(inputPath, cInput);
+    env->ReleaseStringUTFChars(outputPath, cOutput);
+
+    return lines;
+}
+
+extern "C" JNIEXPORT jint JNICALL
+Java_com_zeronovel_gardroid_bridge_NativeLib_repackKsText(
+        JNIEnv* env, jobject /* this */,
+        jstring ksPath, jstring txtPath, jstring outPath) {
+
+    const char* cKs = env->GetStringUTFChars(ksPath, nullptr);
+    const char* cTxt = env->GetStringUTFChars(txtPath, nullptr);
+    const char* cOut = env->GetStringUTFChars(outPath, nullptr);
+
+    int result = KirikiriParser::RepackText(cKs, cTxt, cOut);
+
+    env->ReleaseStringUTFChars(ksPath, cKs);
+    env->ReleaseStringUTFChars(txtPath, cTxt);
+    env->ReleaseStringUTFChars(outPath, cOut);
 
     return result;
 }

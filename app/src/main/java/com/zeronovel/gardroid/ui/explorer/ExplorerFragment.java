@@ -27,6 +27,9 @@ import com.zeronovel.gardroid.bridge.NativeLib;
 import com.zeronovel.gardroid.databinding.FragmentExplorerBinding;
 import com.zeronovel.gardroid.ui.base.BaseFragment;
 import com.zeronovel.gardroid.utils.AstManager;
+import com.zeronovel.gardroid.utils.AstPackerManager;
+import com.zeronovel.gardroid.utils.KsManager;
+import com.zeronovel.gardroid.utils.KsPackerManager;
 import com.zeronovel.gardroid.utils.ScnManager;
 
 import java.io.File;
@@ -48,6 +51,12 @@ public class ExplorerFragment extends BaseFragment<FragmentExplorerBinding>
     private final NativeLib nativeLib = new NativeLib();
     private AstManager astManager;
     private ScnManager scnManager;
+    private KsManager ksManager;
+    private KsPackerManager ksPackerManager;
+
+
+    private AstPackerManager astPackerManager;
+    private boolean isAstPackerMode = false;
 
     private File currentDirectory;
     private File currentArchiveFile = null;
@@ -65,8 +74,34 @@ public class ExplorerFragment extends BaseFragment<FragmentExplorerBinding>
     protected void setupViews() {
         setupToolbar(getBinding().toolbar, "Gardroid", false);
 
+        // Inisialisasi Manager
         astManager = new AstManager(requireContext());
         scnManager = new ScnManager(requireContext());
+        astPackerManager = new AstPackerManager(requireContext()); // Tambahkan ini
+        ksManager = new KsManager(requireContext());
+        ksPackerManager = new KsPackerManager(requireContext());
+
+        // --- SETUP MENU TOOLBAR (TITIK TIGA) ---
+        android.view.MenuItem astMenu = getBinding().toolbar.getMenu().add(0, 101, 0, "AST Packer Mode");
+        astMenu.setCheckable(true);
+        astMenu.setChecked(isAstPackerMode);
+        astMenu.setShowAsAction(android.view.MenuItem.SHOW_AS_ACTION_NEVER);
+
+        getBinding().toolbar.setOnMenuItemClickListener(item -> {
+            if (item.getItemId() == 101) {
+                isAstPackerMode = !isAstPackerMode;
+                item.setChecked(isAstPackerMode);
+
+                String msg = isAstPackerMode ?
+                        "AST Packer Mode AKTIF\nPilih file .ast & .txt lalu tekan tombol Proses." :
+                        "AST Packer Mode NONAKTIF";
+                Toast.makeText(requireContext(), msg, Toast.LENGTH_LONG).show();
+                return true;
+            }
+            return false;
+        });
+        // ---------------------------------------
+
         adapter = new ExplorerAdapter(this);
         getBinding().rvFiles.setLayoutManager(new LinearLayoutManager(getContext()));
         getBinding().rvFiles.setAdapter(adapter);
@@ -75,7 +110,6 @@ public class ExplorerFragment extends BaseFragment<FragmentExplorerBinding>
             @Override
             public void onChanged() {
                 super.onChanged();
-
                 if (adapter.isSelectionMode) {
                     getBinding().fabAction.setVisibility(View.VISIBLE);
                 } else {
@@ -84,8 +118,16 @@ public class ExplorerFragment extends BaseFragment<FragmentExplorerBinding>
             }
         });
 
-        getBinding().fabAction.setOnClickListener(v -> showExtractionOptions());
-
+        // --- MODIFIKASI LOGIKA FAB ---
+        getBinding().fabAction.setOnClickListener(v -> {
+            if (isAstPackerMode) {
+                // Eksekusi khusus AST Packer
+                handleAstPackerAction();
+            } else {
+                // Eksekusi default (Extract XP3/PFS)
+                showExtractionOptions();
+            }
+        });
 
         requireActivity().getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
@@ -115,6 +157,34 @@ public class ExplorerFragment extends BaseFragment<FragmentExplorerBinding>
                 }
             }
         });
+    }
+
+    private void handleAstPackerAction() {
+        if (isInArchiveMode) {
+            showToast("AST Packer hanya bisa digunakan di luar arsip (folder penyimpanan lokal).");
+            return;
+        }
+
+        List<FileModel> selected = adapter.getSelectedFiles();
+        if (selected.isEmpty()) {
+            showToast("Pilih folder atau pasangkan file .ast & .txt terlebih dahulu!");
+            return;
+        }
+
+        // Ambil path absolut dari file-file yang dipilih
+        List<String> paths = new ArrayList<>();
+        for (FileModel f : selected) {
+            // Gunakan f.file, bukan f.getFile()
+            if (f.file != null) {
+                paths.add(f.file.getAbsolutePath());
+            }
+        }
+
+        // Lemparkan ke AstPackerManager untuk dipasangkan (Smart Pairing) dan direpack
+        astPackerManager.processSelection(paths);
+
+        // Matikan mode seleksi setelah memanggil proses
+        adapter.setSelectionMode(false);
     }
 
     @Override
@@ -586,8 +656,9 @@ public class ExplorerFragment extends BaseFragment<FragmentExplorerBinding>
         String title = "Options: " + file.name;
         if (file.isDirectory && !isInArchiveMode) {
             options.add("Repack to Archive");
+            options.add("Repack AST in this Folder");
+            options.add("Repack KS in this Folder");
         }
-
         else if (isInArchiveMode && !file.isDirectory) {
             options.add("Extract File");
         }
@@ -604,10 +675,20 @@ public class ExplorerFragment extends BaseFragment<FragmentExplorerBinding>
 
                     if (selected.equals("Repack to Archive")) {
                         showRepackFormatDialog(file);
-                    } else if (selected.equals("Extract File")) {
+                    } else if (selected.equals("Repack AST in this Folder")) {
+                        // --- EKSEKUSI AST PACKER ---
+                        // Kirim path folder yang dipilih ke AstPackerManager
+                        List<String> folderToProcess = Collections.singletonList(file.file.getAbsolutePath());
+                        astPackerManager.processSelection(folderToProcess);
+                    } else if (selected.equals("Repack KS in this Folder")) {
+                        List<String> folderToProcess = Collections.singletonList(file.file.getAbsolutePath());
+                        ksPackerManager.processSelection(folderToProcess);
+                    }
+                    else if (selected.equals("Extract File")) {
                         List<String> singlePath = Collections.singletonList(currentVirtualPath + file.name);
                         performExtraction(singlePath);
                     }
+
                 })
                 .show();
     }
@@ -698,11 +779,11 @@ public class ExplorerFragment extends BaseFragment<FragmentExplorerBinding>
         if (astManager.containsAstFiles(finalPaths)) {
             astManager.configureAstExtraction(currentArchiveFile, finalPaths, (convertAst, language) -> {
 
-                checkScnAndExtract(finalPaths, convertAst, language);
+                checkScriptsAndExtract(finalPaths, convertAst, language);
             });
         } else {
 
-            checkScnAndExtract(finalPaths, false, null);
+            checkScriptsAndExtract(finalPaths, false, null);
         }
     }
 
@@ -715,34 +796,42 @@ public class ExplorerFragment extends BaseFragment<FragmentExplorerBinding>
         if (astManager.containsAstFiles(allPaths)) {
 
             astManager.configureAstExtraction(currentArchiveFile, allPaths, (convertAst, language) -> {
-                checkScnAndExtract(allPaths, convertAst, language);
+                checkScriptsAndExtract(allPaths, convertAst, language);
             });
         } else {
 
-            checkScnAndExtract(allPaths, false, null);
+            checkScriptsAndExtract(allPaths, false, null);
         }
     }
 
-    private void checkScnAndExtract(List<String> paths, boolean convertAst, String astLang) {
-
+    private void checkScriptsAndExtract(List<String> paths, boolean convertAst, String astLang) {
+        // 1. Cek SCN
         if (scnManager.containsScnFiles(paths)) {
-
             scnManager.configureScnExtraction(paths, (convertScn) -> {
-
-                performExtraction(paths, convertAst, astLang, convertScn);
+                checkKsAndExtract(paths, convertAst, astLang, convertScn);
             });
         } else {
+            checkKsAndExtract(paths, convertAst, astLang, false);
+        }
+    }
 
-            performExtraction(paths, convertAst, astLang, false);
+    private void checkKsAndExtract(List<String> paths, boolean convertAst, String astLang, boolean convertScn) {
+        // 2. Cek KS
+        if (ksManager.containsKsFiles(paths)) {
+            ksManager.configureKsExtraction(paths, (convertKs) -> {
+                performExtraction(paths, convertAst, astLang, convertScn, convertKs);
+            });
+        } else {
+            performExtraction(paths, convertAst, astLang, convertScn, false);
         }
     }
 
     private void performExtraction(List<String> internalPaths) {
-        performExtraction(internalPaths, false, null, false);
+        performExtraction(internalPaths, false, null, false, false);
     }
 
 
-    private void performExtraction(List<String> internalPaths, boolean convertAst, String astLanguage, boolean convertScn) {
+    private void performExtraction(List<String> internalPaths, boolean convertAst, String astLanguage, boolean convertScn, boolean convertKs) {
         if (internalPaths.isEmpty()) return;
 
         if (currentArchiveFile == null) {
@@ -818,6 +907,9 @@ public class ExplorerFragment extends BaseFragment<FragmentExplorerBinding>
                     }
                     else if (convertScn && lowerPath.endsWith(".scn")) {
                         scnManager.processScnFile(destPath);
+                    }
+                    else if (convertKs && lowerPath.endsWith(".ks")) {
+                        ksManager.processKsFile(destPath); // EKSEKUSI KS DI SINI
                     }
                 }
             }
