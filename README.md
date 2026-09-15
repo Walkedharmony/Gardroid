@@ -4,6 +4,9 @@
 ![Platform](https://img.shields.io/badge/Platform-Android_11+-green.svg)
 ![C++](https://img.shields.io/badge/C++-17-blue.svg)
 
+<img width="500" height="500" alt="launcer_icons" src="https://github.com/user-attachments/assets/3d4b30f8-a6b1-4726-bf19-e5b2eec88802" />
+
+
 **Gardroid** pada dasarnya adalah versi portingan Android dari tool ekstraktor VN PC seperti GARbro. Karena proses ekstrak file VN itu butuh komputasi yang lumayan berat, core parser di aplikasi ini dibangun full menggunakan native C++ (NDK) biar performanya tetap cepat, sementara UI-nya ditulis pakai Java. 
 
 Project ini dibikin buat mempermudah proses ekstrak, preview, sampai repack aset Visual Novel langsung dari HP tanpa perlu buka laptop.
