@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:padding="16dp">
+
+    <!-- Play/Pause Button -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/btnPlayPauseAudio"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"
+        android:src="@android:drawable/ic_media_play"
+        app:backgroundTint="#33FFB300"
+        app:tint="#FFB300"
+        app:elevation="0dp"
+        app:fabSize="normal" />
+
+    <!-- Seekbar & Times -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="16dp">
+
+        <TextView
+            android:id="@+id/tvAudioCurrentTime"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="00:00"
+            android:textColor="#FFFFFF"
+            android:textSize="12sp"
+            android:fontFamily="sans-serif-medium" />
+
+        <SeekBar
+            android:id="@+id/sbAudioProgress"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="8dp"
+            android:progressTint="#FFB300"
+            android:thumbTint="#FFB300" />
+
+        <TextView
+            android:id="@+id/tvAudioTotalTime"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="00:00"
+            android:textColor="#FFFFFF"
+            android:textSize="12sp"
+            android:fontFamily="sans-serif-medium" />
+
+    </LinearLayout>
+
+    <!-- Meta Details -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center_horizontal"
+        android:background="#1A000000"
+        android:padding="12dp"
+        android:layout_marginTop="8dp">
+
+        <TextView
+            android:id="@+id/tvAudioDuration"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Duration: --:--"
+            android:textColor="#94A3B8"
+            android:textSize="11sp"
+            android:fontFamily="monospace"
+            android:layout_marginBottom="4dp" />
+
+        <TextView
+            android:id="@+id/tvAudioFormat"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Format: Opus/OGG"
+            android:textColor="#94A3B8"
+            android:textSize="11sp"
+            android:fontFamily="monospace"
+            android:layout_marginBottom="4dp" />
+
+        <TextView
+            android:id="@+id/tvAudioCodec"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Codec: stb_vorbis"
+            android:textColor="#94A3B8"
+            android:textSize="11sp"
+            android:fontFamily="monospace" />
+
+    </LinearLayout>
+
+</LinearLayout>

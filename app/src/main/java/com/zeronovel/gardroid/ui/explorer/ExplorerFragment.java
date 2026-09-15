@@ -21,7 +21,9 @@ import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.lifecycle.ViewModelProvider;
 
+import com.zeronovel.gardroid.R;
 import com.zeronovel.gardroid.data.model.FileModel;
 import com.zeronovel.gardroid.bridge.NativeLib;
 import com.zeronovel.gardroid.databinding.FragmentExplorerBinding;
@@ -31,39 +33,39 @@ import com.zeronovel.gardroid.utils.AstPackerManager;
 import com.zeronovel.gardroid.utils.KsManager;
 import com.zeronovel.gardroid.utils.KsPackerManager;
 import com.zeronovel.gardroid.utils.ScnManager;
+import com.zeronovel.gardroid.utils.SettingsConfig;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import com.zeronovel.gardroid.ui.explorer.managers.PreviewManager;
+import com.zeronovel.gardroid.ui.explorer.managers.ExtractionManager;
+import com.zeronovel.gardroid.ui.explorer.managers.RepackManager;
 import java.util.Set;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 
-
 public class ExplorerFragment extends BaseFragment<FragmentExplorerBinding>
         implements ExplorerAdapter.OnFileClickListener {
 
-    private ExplorerAdapter adapter;
+    public ExplorerAdapter adapter;
+    private PreviewManager previewManager;
+    public ExtractionManager extractionManager;
+    public RepackManager repackManager;
     private final NativeLib nativeLib = new NativeLib();
-    private AstManager astManager;
-    private ScnManager scnManager;
-    private KsManager ksManager;
+    public AstManager astManager;
+    public ScnManager scnManager;
+    public KsManager ksManager;
     private KsPackerManager ksPackerManager;
 
-
     private AstPackerManager astPackerManager;
-    private boolean isAstPackerMode = false;
-
-    private File currentDirectory;
-    private File currentArchiveFile = null;
-    private boolean isInArchiveMode = false;
-
-    private final List<String> rawArchiveData = new ArrayList<>();
-    private String currentVirtualPath = "";
+    public SettingsConfig settingsConfig;
+    private ExplorerViewModel viewModel;
 
     @Override
     protected FragmentExplorerBinding inflateBinding(LayoutInflater inflater, ViewGroup container) {
@@ -72,60 +74,83 @@ public class ExplorerFragment extends BaseFragment<FragmentExplorerBinding>
 
     @Override
     protected void setupViews() {
-        setupToolbar(getBinding().toolbar, "Gardroid", false);
+        viewModel = new ViewModelProvider(this).get(ExplorerViewModel.class);
 
         // Inisialisasi Manager
         astManager = new AstManager(requireContext());
         scnManager = new ScnManager(requireContext());
-        astPackerManager = new AstPackerManager(requireContext()); // Tambahkan ini
+        astPackerManager = new AstPackerManager(requireContext());
         ksManager = new KsManager(requireContext());
         ksPackerManager = new KsPackerManager(requireContext());
 
-        // --- SETUP MENU TOOLBAR (TITIK TIGA) ---
-        android.view.MenuItem astMenu = getBinding().toolbar.getMenu().add(0, 101, 0, "AST Packer Mode");
-        astMenu.setCheckable(true);
-        astMenu.setChecked(isAstPackerMode);
-        astMenu.setShowAsAction(android.view.MenuItem.SHOW_AS_ACTION_NEVER);
+        getBinding().drawerLayout.setDrawerLockMode(androidx.drawerlayout.widget.DrawerLayout.LOCK_MODE_LOCKED_CLOSED);
 
-        getBinding().toolbar.setOnMenuItemClickListener(item -> {
-            if (item.getItemId() == 101) {
-                isAstPackerMode = !isAstPackerMode;
-                item.setChecked(isAstPackerMode);
-
-                String msg = isAstPackerMode ?
-                        "AST Packer Mode AKTIF\nPilih file .ast & .txt lalu tekan tombol Proses." :
-                        "AST Packer Mode NONAKTIF";
-                Toast.makeText(requireContext(), msg, Toast.LENGTH_LONG).show();
-                return true;
+        // --- SETUP SETTINGS BUTTON ---3
+        getBinding().btnSettings.setOnClickListener(v -> {
+            if (!getBinding().drawerLayout.isDrawerOpen(androidx.core.view.GravityCompat.END)) {
+                getBinding().drawerLayout.openDrawer(androidx.core.view.GravityCompat.END);
+            } else {
+                getBinding().drawerLayout.closeDrawer(androidx.core.view.GravityCompat.END);
             }
-            return false;
         });
-        // ---------------------------------------
 
+        // --- SETUP DRAWER TOGGLES ---
+        settingsConfig = new SettingsConfig(requireContext());
+
+        getBinding().switchScnManager.setChecked(settingsConfig.isManagerEnabled(SettingsConfig.KEY_SCN_MANAGER));
+        getBinding().switchKsManager.setChecked(settingsConfig.isManagerEnabled(SettingsConfig.KEY_KS_MANAGER));
+        getBinding().switchAstManager.setChecked(settingsConfig.isManagerEnabled(SettingsConfig.KEY_AST_MANAGER));
+        getBinding().switchTlgPng.setChecked(settingsConfig.isManagerEnabled(SettingsConfig.KEY_TLG_CONVERT_PNG));
+
+        getBinding().switchScnManager.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            settingsConfig.setManagerEnabled(SettingsConfig.KEY_SCN_MANAGER, isChecked);
+        });
+        getBinding().switchKsManager.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            settingsConfig.setManagerEnabled(SettingsConfig.KEY_KS_MANAGER, isChecked);
+        });
+        getBinding().switchAstManager.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            settingsConfig.setManagerEnabled(SettingsConfig.KEY_AST_MANAGER, isChecked);
+        });
+        getBinding().switchTlgPng.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            settingsConfig.setManagerEnabled(SettingsConfig.KEY_TLG_CONVERT_PNG, isChecked);
+        });
+
+        // --- SETUP DRAWER TOGGLES ---
+        getBinding().drawerLayout.setDrawerLockMode(androidx.drawerlayout.widget.DrawerLayout.LOCK_MODE_LOCKED_CLOSED);
+
+        getBinding().btnHelpScn.setOnClickListener(v -> showHelpDialog("SCN Manager",
+                "OFF : Menonaktifkan konversi otomatis pada archive yang memiliki file skenario .scn pada saat ekstraksi menyeluruh ataupun pada seleksi file\n\n"
+                        +
+                        "ON : Mengaktifkan pencarian otomatis dan konversi otomatis pada archive yang memiliki file skenario .scn pada saat ekstraksi menyeluruh ataupun pada seleksi file"));
+
+        getBinding().btnHelpKs.setOnClickListener(v -> showHelpDialog("KS Manager",
+                "OFF : Menonaktifkan konversi otomatis pada archive yang memiliki file skenario .ks pada saat ekstraksi menyeluruh ataupun pada seleksi file\n\n"
+                        +
+                        "ON : Mengaktifkan pencarian otomatis dan konversi otomatis pada archive yang memiliki file skenario .ks pada saat ekstraksi menyeluruh ataupun pada seleksi file"));
+
+        getBinding().btnHelpAst.setOnClickListener(v -> showHelpDialog("AST Manager",
+                "OFF : Menonaktifkan konversi otomatis pada archive yang memiliki file skenario .ast pada saat ekstraksi menyeluruh ataupun pada seleksi file\n\n"
+                        +
+                        "ON : Mengaktifkan pencarian otomatis dan konversi otomatis pada archive yang memiliki file skenario .ast pada saat ekstraksi menyeluruh ataupun pada seleksi file"));
+
+        getBinding().btnHelpTlg.setOnClickListener(v -> showHelpDialog("TLG Auto Convert",
+                "OFF : Mengekstrak file gambar TLG secara mentah (Raw) apa adanya.\n\n" +
+                        "ON : Secara otomatis mendekode file TLG ke dalam memori dan mengonversinya menjadi PNG (tanpa mengompresi kualitas) selama proses pengekstrakan. File TLG mentah hasil ekstraksi akan otomatis dihapus."));
+
+        extractionManager = new ExtractionManager(this, viewModel, nativeLib);
+        repackManager = new RepackManager(this, viewModel, nativeLib);
+        previewManager = new PreviewManager(this, viewModel, nativeLib);
         adapter = new ExplorerAdapter(this);
         getBinding().rvFiles.setLayoutManager(new LinearLayoutManager(getContext()));
         getBinding().rvFiles.setAdapter(adapter);
 
-        adapter.registerAdapterDataObserver(new RecyclerView.AdapterDataObserver() {
-            @Override
-            public void onChanged() {
-                super.onChanged();
-                if (adapter.isSelectionMode) {
-                    getBinding().fabAction.setVisibility(View.VISIBLE);
-                } else {
-                    getBinding().fabAction.setVisibility(View.GONE);
-                }
-            }
-        });
-
-        // --- MODIFIKASI LOGIKA FAB ---
         getBinding().fabAction.setOnClickListener(v -> {
-            if (isAstPackerMode) {
-                // Eksekusi khusus AST Packer
+            if ((Boolean.TRUE.equals(viewModel.isAstPackerMode.getValue()))) {
+
                 handleAstPackerAction();
             } else {
-                // Eksekusi default (Extract XP3/PFS)
-                showExtractionOptions();
+
+                extractionManager.showExtractionOptions();
             }
         });
 
@@ -133,22 +158,28 @@ public class ExplorerFragment extends BaseFragment<FragmentExplorerBinding>
             @Override
             public void handleOnBackPressed() {
 
+                if (getBinding().drawerLayout.isDrawerOpen(androidx.core.view.GravityCompat.END)) {
+                    getBinding().drawerLayout.closeDrawer(androidx.core.view.GravityCompat.END);
+                    return;
+                }
+
                 if (adapter.isSelectionMode) {
                     adapter.setSelectionMode(false);
                     return;
                 }
 
-                if (isInArchiveMode) {
-                    if (!currentVirtualPath.isEmpty()) {
+                if (viewModel.isInArchiveMode) {
+                    if (!viewModel.currentVirtualPath.isEmpty()) {
                         navigateUpVirtual();
                     } else {
                         exitArchiveMode();
                     }
                 }
 
-                else if (currentDirectory != null && currentDirectory.getParentFile() != null &&
-                        currentDirectory.getAbsolutePath().startsWith(Environment.getExternalStorageDirectory().getAbsolutePath())) {
-                    loadDirectory(currentDirectory.getParentFile());
+                else if (viewModel.currentDirectory != null && viewModel.currentDirectory.getParentFile() != null &&
+                        viewModel.currentDirectory.getAbsolutePath()
+                                .startsWith(Environment.getExternalStorageDirectory().getAbsolutePath())) {
+                    loadDirectory(viewModel.currentDirectory.getParentFile());
                 }
 
                 else {
@@ -160,7 +191,7 @@ public class ExplorerFragment extends BaseFragment<FragmentExplorerBinding>
     }
 
     private void handleAstPackerAction() {
-        if (isInArchiveMode) {
+        if (viewModel.isInArchiveMode) {
             showToast("AST Packer hanya bisa digunakan di luar arsip (folder penyimpanan lokal).");
             return;
         }
@@ -171,30 +202,146 @@ public class ExplorerFragment extends BaseFragment<FragmentExplorerBinding>
             return;
         }
 
-        // Ambil path absolut dari file-file yang dipilih
         List<String> paths = new ArrayList<>();
         for (FileModel f : selected) {
-            // Gunakan f.file, bukan f.getFile()
             if (f.file != null) {
                 paths.add(f.file.getAbsolutePath());
             }
         }
 
-        // Lemparkan ke AstPackerManager untuk dipasangkan (Smart Pairing) dan direpack
         astPackerManager.processSelection(paths);
-
-        // Matikan mode seleksi setelah memanggil proses
         adapter.setSelectionMode(false);
+    }
+
+    private void showHelpDialog(String title, String message) {
+        new MaterialAlertDialogBuilder(requireContext(),
+                com.google.android.material.R.style.ThemeOverlay_Material3_MaterialAlertDialog)
+                .setTitle(title)
+                .setMessage(message)
+                .setPositiveButton("Mengerti", null)
+                .setIcon(R.drawable.ic_help)
+                .show();
     }
 
     @Override
     protected void observeData() {
+        viewModel.fileList.observe(getViewLifecycleOwner(), models -> adapter.updateList(models));
+        viewModel.currentPathText.observe(getViewLifecycleOwner(), this::updateBreadcrumbs);
+        viewModel.isEmpty.observe(getViewLifecycleOwner(), this::updateEmptyState);
         checkPermissionAndLoad();
+    }
+
+    private int getThemeColor(int attrResId) {
+        android.util.TypedValue typedValue = new android.util.TypedValue();
+        requireContext().getTheme().resolveAttribute(attrResId, typedValue, true);
+        return typedValue.data;
+    }
+
+    private void updateBreadcrumbs(String path) {
+        android.widget.LinearLayout layoutBreadcrumb = getBinding().layoutBreadcrumb;
+        layoutBreadcrumb.removeAllViews();
+
+        if (path == null || path.isEmpty())
+            return;
+
+        String[] segments = path.split("/");
+        String currentBuildPath = "";
+
+        for (int i = 0; i < segments.length; i++) {
+            String segment = segments[i];
+            if (segment.isEmpty())
+                continue;
+
+            currentBuildPath += "/" + segment;
+            final String targetPath = currentBuildPath;
+
+            View breadcrumbView = getLayoutInflater().inflate(R.layout.item_breadcrumb, layoutBreadcrumb, false);
+            android.widget.TextView tvTitle = breadcrumbView.findViewById(R.id.tvTitle);
+            android.widget.TextView tvSeparator = breadcrumbView.findViewById(R.id.tvSeparator);
+            android.widget.ImageView ivIcon = breadcrumbView.findViewById(R.id.ivIcon);
+            com.google.android.material.card.MaterialCardView cardChip = breadcrumbView.findViewById(R.id.cardChip);
+
+            tvTitle.setText(segment);
+
+            if (layoutBreadcrumb.getChildCount() == 0) {
+                tvSeparator.setVisibility(View.GONE);
+                if (segment.equalsIgnoreCase("storage") || segment.equalsIgnoreCase("emulated")) {
+                    ivIcon.setVisibility(View.VISIBLE);
+                    ivIcon.setImageResource(R.drawable.ic_folder);
+                }
+            } else {
+                tvSeparator.setVisibility(View.VISIBLE);
+            }
+
+            boolean isLast = (i == segments.length - 1);
+            boolean isSafeRoot = segment.equalsIgnoreCase("storage") || segment.equalsIgnoreCase("emulated");
+
+            if (isLast) {
+                if (viewModel.isInArchiveMode) {
+                    cardChip.setCardBackgroundColor(getThemeColor(R.attr.colorArchiveBg));
+                    tvTitle.setTextColor(getThemeColor(R.attr.colorArchiveText));
+                    ivIcon.setVisibility(View.VISIBLE);
+                    ivIcon.setImageResource(R.drawable.ic_archive);
+                    ivIcon.setColorFilter(getThemeColor(R.attr.colorArchiveText));
+                } else {
+
+                    if (isSafeRoot) {
+                        cardChip.setCardBackgroundColor(android.graphics.Color.parseColor("#FFE5E5"));
+                        tvTitle.setTextColor(android.graphics.Color.parseColor("#D32F2F"));
+                        if (ivIcon.getVisibility() == View.VISIBLE)
+                            ivIcon.setColorFilter(android.graphics.Color.parseColor("#D32F2F"));
+                    } else {
+                        cardChip.setCardBackgroundColor(
+                                getThemeColor(com.google.android.material.R.attr.colorPrimaryContainer));
+                        tvTitle.setTextColor(getThemeColor(com.google.android.material.R.attr.colorOnPrimaryContainer));
+                    }
+                }
+            } else {
+                if (isSafeRoot) {
+                    tvTitle.setTextColor(android.graphics.Color.parseColor("#D32F2F"));
+                    if (ivIcon.getVisibility() == View.VISIBLE)
+                        ivIcon.setColorFilter(android.graphics.Color.parseColor("#D32F2F"));
+                }
+            }
+
+            cardChip.setOnClickListener(v -> {
+
+                if (viewModel.isInArchiveMode && viewModel.currentArchiveFile != null
+                        && targetPath.equals(viewModel.currentArchiveFile.getAbsolutePath())) {
+
+                    exitArchiveMode();
+                    return;
+                }
+
+                if (viewModel.isInArchiveMode && viewModel.currentArchiveFile != null
+                        && targetPath.contains(viewModel.currentArchiveFile.getAbsolutePath())) {
+                    String virtualPath = targetPath.replace(viewModel.currentArchiveFile.getAbsolutePath(), "");
+                    if (virtualPath.startsWith("/"))
+                        virtualPath = virtualPath.substring(1);
+                    if (!virtualPath.endsWith("/") && !virtualPath.isEmpty())
+                        virtualPath += "/";
+                    viewModel.currentVirtualPath = virtualPath;
+                    viewModel.refreshVirtualView();
+                } else {
+                    if (viewModel.isInArchiveMode) {
+                        exitArchiveMode();
+                    }
+                    loadDirectory(new java.io.File(targetPath));
+                }
+            });
+
+            layoutBreadcrumb.addView(breadcrumbView);
+        }
+
+        getBinding().scrollPath.post(() -> {
+            getBinding().scrollPath.fullScroll(android.widget.HorizontalScrollView.FOCUS_RIGHT);
+        });
     }
 
     private void checkPermissionAndLoad() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            if (Environment.isExternalStorageManager()) loadDirectory(Environment.getExternalStorageDirectory());
+            if (Environment.isExternalStorageManager())
+                loadInitialDirectory();
             else {
                 try {
                     Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
@@ -207,6 +354,18 @@ public class ExplorerFragment extends BaseFragment<FragmentExplorerBinding>
                     startActivityForResult(intent, 100);
                 }
             }
+        } else {
+            loadInitialDirectory();
+        }
+    }
+
+    private void loadInitialDirectory() {
+        android.content.SharedPreferences prefs = requireContext().getSharedPreferences("gardroid_prefs",
+                android.content.Context.MODE_PRIVATE);
+        String lastPath = prefs.getString("last_path", Environment.getExternalStorageDirectory().getAbsolutePath());
+        File dir = new File(lastPath);
+        if (dir.exists() && dir.isDirectory()) {
+            loadDirectory(dir);
         } else {
             loadDirectory(Environment.getExternalStorageDirectory());
         }
@@ -222,445 +381,136 @@ public class ExplorerFragment extends BaseFragment<FragmentExplorerBinding>
         }
     }
 
-    private void loadDirectory(File directory) {
-        this.currentDirectory = directory;
-        getBinding().tvPath.setText(directory.getAbsolutePath());
-
-        File[] files = directory.listFiles();
-        List<FileModel> models = new ArrayList<>();
-
-        if (files != null) {
-            for (File file : files) {
-                if (!file.isHidden()) models.add(new FileModel(file));
-            }
+    public void loadDirectory(File directory) {
+        viewModel.loadDirectory(directory);
+        if (!viewModel.isInArchiveMode) {
+            android.content.SharedPreferences prefs = requireContext().getSharedPreferences("gardroid_prefs",
+                    android.content.Context.MODE_PRIVATE);
+            prefs.edit().putString("last_path", directory.getAbsolutePath()).apply();
         }
-
-        Collections.sort(models, (o1, o2) -> {
-            if (o1.isDirectory && !o2.isDirectory) return -1;
-            if (!o1.isDirectory && o2.isDirectory) return 1;
-            return o1.name.compareToIgnoreCase(o2.name);
-        });
-
-        adapter.updateList(models);
-        updateEmptyState(models.isEmpty());
     }
 
     private void enterArchiveMode(File archiveFile) {
-
-        String[] rawDataArray = nativeLib.getArchiveFileList(archiveFile.getAbsolutePath());
-
-        if (rawDataArray == null) {
+        if (!viewModel.enterArchiveMode(archiveFile)) {
             showToast("Gagal membuka arsip (Format tidak didukung/Encrypted)");
-            return;
         }
-
-        isInArchiveMode = true;
-        currentArchiveFile = archiveFile;
-        currentVirtualPath = "";
-
-        rawArchiveData.clear();
-        Collections.addAll(rawArchiveData, rawDataArray);
-
-        refreshVirtualView();
     }
 
     private void navigateUpVirtual() {
-        if (currentVirtualPath.endsWith("/")) {
-            String temp = currentVirtualPath.substring(0, currentVirtualPath.length() - 1);
-            int lastSlash = temp.lastIndexOf('/');
-            if (lastSlash != -1) {
-                currentVirtualPath = temp.substring(0, lastSlash + 1);
-            } else {
-                currentVirtualPath = "";
-            }
-        } else {
-            currentVirtualPath = "";
-        }
-        refreshVirtualView();
+        viewModel.navigateUpVirtual();
     }
 
     private void exitArchiveMode() {
-        isInArchiveMode = false;
-        rawArchiveData.clear();
-        if (currentArchiveFile != null) {
-            loadDirectory(currentArchiveFile.getParentFile());
-        }
-        currentArchiveFile = null;
+        viewModel.exitArchiveMode();
     }
 
-
     private void refreshVirtualView() {
-        List<FileModel> displayList = new ArrayList<>();
-        Set<String> addedFolders = new HashSet<>();
-
-        getBinding().tvPath.setText(currentArchiveFile.getName() + " > /" + currentVirtualPath);
-
-        for (String entry : rawArchiveData) {
-            String[] parts = entry.split("\\|");
-            String fullPath = parts[0];
-            long size = (parts.length > 1) ? Long.parseLong(parts[1]) : 0;
-
-            if (fullPath.startsWith(currentVirtualPath)) {
-                String remainingPath = fullPath.substring(currentVirtualPath.length());
-                int slashIndex = remainingPath.indexOf('/');
-
-                if (slashIndex != -1) {
-                    String folderName = remainingPath.substring(0, slashIndex);
-                    if (!addedFolders.contains(folderName)) {
-                        FileModel folderModel = new FileModel(folderName, 0);
-                        folderModel.isDirectory = true;
-                        displayList.add(folderModel);
-                        addedFolders.add(folderName);
-                    }
-                } else {
-                    if (!remainingPath.isEmpty()) {
-                        displayList.add(new FileModel(remainingPath, size));
-                    }
-                }
-            }
-        }
-
-        Collections.sort(displayList, (o1, o2) -> {
-            if (o1.isDirectory && !o2.isDirectory) return -1;
-            if (!o1.isDirectory && o2.isDirectory) return 1;
-            return o1.name.compareToIgnoreCase(o2.name);
-        });
-
-        adapter.updateList(displayList);
-        updateEmptyState(displayList.isEmpty());
+        viewModel.refreshVirtualView();
     }
 
     private boolean isSupportedArchive(String fileName) {
         String lower = fileName.toLowerCase();
-        return lower.endsWith(".xp3") || lower.endsWith(".pfs") || lower.endsWith(".pfs.000") || lower.endsWith(".pfs.001") || lower.endsWith(".arc");
+        return lower.endsWith(".xp3") || lower.endsWith(".pfs") || lower.endsWith(".pfs.000")
+                || lower.endsWith(".pfs.001") || lower.endsWith(".arc");
+    }
+
+    public void performExtraction(List<String> selectedPaths) {
+        if (extractionManager != null) {
+            extractionManager.performExtraction(selectedPaths);
+        }
+    }
+
+    public void showRepackFormatDialog(FileModel folder) {
+        if (repackManager != null) {
+            repackManager.showRepackFormatDialog(folder);
+        }
     }
 
     @Override
     public void onFileClick(FileModel file) {
-        if (isInArchiveMode) {
+        if (adapter.isSelectionMode)
+            return;
+        if (viewModel.isInArchiveMode) {
             if (file.isDirectory) {
-                currentVirtualPath += file.name + "/";
+                viewModel.currentVirtualPath += file.name + "/";
                 refreshVirtualView();
-            }
-            else {
+            } else {
                 String name = file.name.toLowerCase();
-
-                if (name.endsWith(".png") || name.endsWith(".jpg") || name.endsWith(".bmp")) {
-                    showImagePreview(file, false);
-                }
-                else if (name.endsWith(".tlg")) {
-                    showImagePreview(file, true);
-                }
-
-                else if (name.endsWith(".tjs") || name.endsWith(".ks") ||
-                        name.endsWith(".ini") || name.endsWith(".lua") ||
-                        name.endsWith(".txt") || name.endsWith(".scn")) {
-                    showTextPreview(file);
-                }
-
-                else {
-                    checkAndShowPreview(file);
-
+                if (name.endsWith(".png") || name.endsWith(".jpg") || name.endsWith(".bmp") || name.endsWith(".tlg") ||
+                        name.endsWith(".tjs") || name.endsWith(".ks") || name.endsWith(".ini") || name.endsWith(".lua")
+                        ||
+                        name.endsWith(".txt") || name.endsWith(".bgi") || name.endsWith(".ogg")
+                        || name.endsWith(".opus")) {
+                    previewManager.showModernPreview(file, viewModel.isInArchiveMode);
+                } else {
+                    previewManager.checkAndShowPreview(file);
                 }
             }
         } else {
-            if (file.isDirectory) loadDirectory(file.file);
-            else if (file.isXp3 || isSupportedArchive(file.name)) enterArchiveMode(file.file);
-            else showToast("File System: " + file.name);
+            if (file.isDirectory) {
+                loadDirectory(file.file);
+            } else if (file.isXp3 || isSupportedArchive(file.name)) {
+                enterArchiveMode(file.file);
+            } else {
+                String name = file.name.toLowerCase();
+                if (name.endsWith(".png") || name.endsWith(".jpg") || name.endsWith(".bmp") || name.endsWith(".tlg") ||
+                        name.endsWith(".tjs") || name.endsWith(".ks") || name.endsWith(".ini") || name.endsWith(".lua")
+                        ||
+                        name.endsWith(".txt") || name.endsWith(".bgi") || name.endsWith(".ogg")
+                        || name.endsWith(".opus")) {
+                    previewManager.showModernPreview(file, viewModel.isInArchiveMode);
+                } else {
+                    showToast("File System: " + file.name);
+                }
+            }
         }
     }
 
-    private void checkAndShowPreview(FileModel file) {
-        new Thread(() -> {
-            byte[] data = nativeLib.getFileBuffer(currentArchiveFile.getAbsolutePath(), currentVirtualPath + file.name);
+    @Override
+    public void onSelectionChanged(int count) {
+        if (adapter.isSelectionMode) {
+            if (count > 0) {
+                getBinding().fabAction.setVisibility(View.VISIBLE);
 
-            if (data != null && data.length > 32) {
-
-                String signature = new String(data, 0, 12);
-                if (signature.equals("CompressedBG")) {
-                    requireActivity().runOnUiThread(() -> showBgiPreview(file));
-                    return;
-                }
-            }
-
-            requireActivity().runOnUiThread(() ->
-                    showToast("File: " + file.name + "\n(Gunakan titik tiga untuk ekstrak)"));
-
-        }).start();
-    }
-
-    private void showBgiPreview(FileModel file) {
-        AlertDialog loadingDialog = new AlertDialog.Builder(requireContext())
-                .setMessage("Decoding BGI...")
-                .setCancelable(false)
-                .create();
-        loadingDialog.show();
-
-        new Thread(() -> {
-            Bitmap bitmap = null;
-            try {
-
-                int[] rawData = nativeLib.getBgiPreview(
-                        currentArchiveFile.getAbsolutePath(),
-                        currentVirtualPath + file.name
-                );
-
-                if (rawData != null && rawData.length > 2) {
-                    int width = rawData[0];
-                    int height = rawData[1];
-                    bitmap = Bitmap.createBitmap(rawData, 2, width, width, height, Bitmap.Config.ARGB_8888);
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-
-            Bitmap finalBitmap = bitmap;
-            requireActivity().runOnUiThread(() -> {
-                loadingDialog.dismiss();
-                if (finalBitmap != null) {
-                    showPreviewDialog(file, finalBitmap, true);
-                } else {
-                    showToast("Gagal decode BGI Image.");
-                }
-            });
-        }).start();
-    }
-
-    private void showTextPreview(FileModel file) {
-        AlertDialog loadingDialog = new AlertDialog.Builder(requireContext())
-                .setMessage("Reading text...")
-                .setCancelable(false)
-                .create();
-        loadingDialog.show();
-
-        String fullInternalPath = currentVirtualPath + file.name;
-
-        new Thread(() -> {
-
-            byte[] data = nativeLib.getFileBuffer(
-                    currentArchiveFile.getAbsolutePath(),
-                    fullInternalPath
-            );
-
-            requireActivity().runOnUiThread(() -> {
-                loadingDialog.dismiss();
-                if (data == null || data.length == 0) {
-                    showToast("Gagal membaca file atau file kosong.");
-                    return;
-                }
-
-                if (file.name.toLowerCase().endsWith(".tjs") && data.length >= 7) {
-                    if (data[0] == 0x54 && data[1] == 0x4A && data[2] == 0x53 &&
-                            data[3] == 0x32 && data[4] == 0x31 && data[5] == 0x30 && data[6] == 0x30) {
-
-                        showToast("File tercompile (Binary TJS). Akan ada di update mendatang");
-                        return;
+                boolean onlyArchivesSelected = true;
+                List<FileModel> selected = adapter.getSelectedFiles();
+                for (FileModel f : selected) {
+                    if (f.isDirectory || !f.name.toLowerCase().endsWith(".xp3")) {
+                        onlyArchivesSelected = false;
+                        break;
                     }
                 }
 
-                String textContent = decodeBytesToString(data);
-                showTextDialog(file, textContent);
-            });
-        }).start();
-    }
-
-    private String decodeBytesToString(byte[] data) {
-        if (data.length < 2) return new String(data);
-
-        if ((data[0] & 0xFF) == 0xFF && (data[1] & 0xFF) == 0xFE) {
-            return new String(data, StandardCharsets.UTF_16LE);
-        }
-
-        if ((data[0] & 0xFF) == 0xFE && (data[1] & 0xFF) == 0xFF) {
-            return new String(data, StandardCharsets.UTF_16BE);
-        }
-
-        if (data.length >= 3 && (data[0] & 0xFF) == 0xEF && (data[1] & 0xFF) == 0xBB && (data[2] & 0xFF) == 0xBF) {
-            return new String(data, StandardCharsets.UTF_8);
-        }
-
-        try {
-
-            return new String(data, Charset.forName("Shift_JIS"));
-        } catch (Exception e) {
-
-            return new String(data, StandardCharsets.UTF_8);
-        }
-    }
-
-    private void showTextDialog(FileModel file, String content) {
-        AlertDialog.Builder builder = new AlertDialog.Builder(requireContext());
-        builder.setTitle(file.name);
-
-
-        ScrollView scrollView = new ScrollView(requireContext());
-        TextView textView = new TextView(requireContext());
-
-        textView.setText(content);
-        textView.setPadding(30, 30, 30, 30);
-        textView.setTextSize(12);
-        textView.setTextColor(Color.WHITE);
-
-        textView.setTypeface(android.graphics.Typeface.MONOSPACE);
-
-        textView.setTextIsSelectable(true);
-
-        scrollView.addView(textView);
-        builder.setView(scrollView);
-
-        builder.setPositiveButton("Close", null);
-        builder.setNeutralButton("Extract", (dialog, which) -> {
-            List<String> singlePath = Collections.singletonList(currentVirtualPath + file.name);
-            performExtraction(singlePath);
-        });
-
-        builder.show();
-    }
-
-    private int calculateInSampleSize(BitmapFactory.Options options, int reqWidth, int reqHeight) {
-        final int height = options.outHeight;
-        final int width = options.outWidth;
-        int inSampleSize = 1;
-
-        if (height > reqHeight || width > reqWidth) {
-            final int halfHeight = height / 2;
-            final int halfWidth = width / 2;
-            while ((halfHeight / inSampleSize) >= reqHeight && (halfWidth / inSampleSize) >= reqWidth) {
-                inSampleSize *= 2;
-            }
-        }
-        return inSampleSize;
-    }
-
-    private void showImagePreview(FileModel file, boolean isTlg) {
-
-        AlertDialog loadingDialog = new AlertDialog.Builder(requireContext())
-                .setMessage("Loading preview...")
-                .setCancelable(false)
-                .create();
-        loadingDialog.show();
-
-        String fullInternalPath = currentVirtualPath + file.name;
-
-        new Thread(() -> {
-            Bitmap bitmap = null;
-            try {
-                if (isTlg) {
-                    int[] rawData = nativeLib.getTlgPreview(
-                            currentArchiveFile.getAbsolutePath(),
-                            fullInternalPath
-                    );
-                    if (rawData != null && rawData.length > 2) {
-                        int width = rawData[0];
-                        int height = rawData[1];
-                        bitmap = Bitmap.createBitmap(rawData, 2, width, width, height, Bitmap.Config.ARGB_8888);
-                    }
+                if (viewModel.isInArchiveMode) {
+                    getBinding().fabAction.setIconResource(R.drawable.ic_extract);
+                    getBinding().fabAction.setText("Ekstrak " + count + " Item");
+                } else if (onlyArchivesSelected) {
+                    getBinding().fabAction.setIconResource(R.drawable.ic_extract);
+                    getBinding().fabAction.setText("Ekstrak " + count + " Archive");
                 } else {
-                    byte[] imageData = nativeLib.getFileBuffer(
-                            currentArchiveFile.getAbsolutePath(),
-                            fullInternalPath
-                    );
-                    if (imageData != null && imageData.length > 0) {
-                        BitmapFactory.Options options = new BitmapFactory.Options();
-                        options.inJustDecodeBounds = true;
-                        BitmapFactory.decodeByteArray(imageData, 0, imageData.length, options);
-                        options.inSampleSize = calculateInSampleSize(options, 800, 800);
-                        options.inJustDecodeBounds = false;
-
-                        bitmap = BitmapFactory.decodeByteArray(imageData, 0, imageData.length, options);
-                    }
+                    getBinding().fabAction.setIconResource(R.drawable.ic_pack);
+                    getBinding().fabAction.setText("Pack " + count + " Item");
                 }
-            } catch (Exception | OutOfMemoryError e) {
-                e.printStackTrace();
+            } else {
+                getBinding().fabAction.setVisibility(View.GONE);
             }
-
-            Bitmap finalBitmap = bitmap;
-            requireActivity().runOnUiThread(() -> {
-                loadingDialog.dismiss();
-                if (finalBitmap != null) {
-                    showPreviewDialog(file, finalBitmap, isTlg);
-                } else {
-                    showToast("Gagal memuat preview gambar.");
-                }
-            });
-        }).start();
-    }
-
-    private void showPreviewDialog(FileModel file, Bitmap bitmap, boolean showConvertOption) {
-        AlertDialog.Builder builder = new AlertDialog.Builder(requireContext());
-        builder.setTitle(file.name);
-
-        ImageView imageView = new ImageView(requireContext());
-        imageView.setImageBitmap(bitmap);
-        imageView.setAdjustViewBounds(true);
-        imageView.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        imageView.setBackgroundColor(Color.DKGRAY);
-        imageView.setPadding(10, 10, 10, 10);
-
-        builder.setView(imageView);
-
-        builder.setPositiveButton("Close", (dialog, which) -> {
-            if (bitmap != null && !bitmap.isRecycled()) {
-                bitmap.recycle();
-            }
-        });
-
-        builder.setNeutralButton("Extract", (dialog, which) -> {
-            List<String> singlePath = Collections.singletonList(currentVirtualPath + file.name);
-            performExtraction(singlePath);
-        });
-
-        if (showConvertOption) {
-            builder.setNegativeButton("Convert", (dialog, which) -> {
-                saveBitmapAsPng(file, bitmap);
-                if (bitmap != null && !bitmap.isRecycled()) bitmap.recycle();
-            });
-        }
-
-        AlertDialog dialog = builder.create();
-        dialog.show();
-    }
-
-    private void saveBitmapAsPng(FileModel file, Bitmap bitmap) {
-        if (currentArchiveFile == null || bitmap == null) return;
-
-        File parentDir = currentArchiveFile.getParentFile();
-        String xp3Name = currentArchiveFile.getName().replaceFirst("[.][^.]+$", ""); // Buang ekstensi arsip
-        File targetBaseDir = new File(parentDir, "Gardroid_Extracted/" + xp3Name);
-
-        File targetDir = new File(targetBaseDir, currentVirtualPath);
-        if (!targetDir.exists()) targetDir.mkdirs();
-
-        String originalName = file.name;
-        String pngName;
-        int dotIndex = originalName.lastIndexOf('.');
-        if (dotIndex > 0) {
-            pngName = originalName.substring(0, dotIndex) + ".png";
         } else {
-            pngName = originalName + ".png";
-        }
-
-        File destFile = new File(targetDir, pngName);
-
-        try (FileOutputStream out = new FileOutputStream(destFile)) {
-            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out);
-            showToast("Converted & Saved:\n" + destFile.getAbsolutePath());
-        } catch (IOException e) {
-            e.printStackTrace();
-            showToast("Gagal menyimpan PNG: " + e.getMessage());
+            getBinding().fabAction.setVisibility(View.GONE);
         }
     }
+
     @Override
     public void onMoreClick(FileModel file) {
         List<String> options = new ArrayList<>();
         String title = "Options: " + file.name;
-        if (file.isDirectory && !isInArchiveMode) {
+        if (file.isDirectory && !viewModel.isInArchiveMode) {
             options.add("Repack to Archive");
             options.add("Repack AST in this Folder");
             options.add("Repack KS in this Folder");
-        }
-        else if (isInArchiveMode && !file.isDirectory) {
+        } else if (viewModel.isInArchiveMode && !file.isDirectory) {
             options.add("Extract File");
+        } else if (!viewModel.isInArchiveMode && file.isVirtual) {
+            options.add("Extract all files on this archive");
         }
 
         if (options.isEmpty()) {
@@ -676,318 +526,20 @@ public class ExplorerFragment extends BaseFragment<FragmentExplorerBinding>
                     if (selected.equals("Repack to Archive")) {
                         showRepackFormatDialog(file);
                     } else if (selected.equals("Repack AST in this Folder")) {
-                        // --- EKSEKUSI AST PACKER ---
-                        // Kirim path folder yang dipilih ke AstPackerManager
                         List<String> folderToProcess = Collections.singletonList(file.file.getAbsolutePath());
                         astPackerManager.processSelection(folderToProcess);
                     } else if (selected.equals("Repack KS in this Folder")) {
                         List<String> folderToProcess = Collections.singletonList(file.file.getAbsolutePath());
                         ksPackerManager.processSelection(folderToProcess);
-                    }
-                    else if (selected.equals("Extract File")) {
-                        List<String> singlePath = Collections.singletonList(currentVirtualPath + file.name);
+                    } else if (selected.equals("Extract File")) {
+                        List<String> singlePath = Collections.singletonList(viewModel.currentVirtualPath + file.name);
                         performExtraction(singlePath);
+                    } else if (selected.equals("Extract all files on this archive")) {
+                        extractionManager.handleExtractAllOffline(file.file);
                     }
 
                 })
                 .show();
     }
 
-    private void showRepackFormatDialog(FileModel folder) {
-        String[] formats = {"Kirikiri (.xp3)", "Artemis (.pfs)"};
-
-        new AlertDialog.Builder(requireContext())
-                .setTitle("Select Archive Format")
-                .setItems(formats, (dialog, which) -> {
-                    if (which == 0) {
-                        performRepack(Collections.singletonList(folder), "xp3");
-                    } else {
-                        performRepack(Collections.singletonList(folder), "pfs");
-                    }
-                })
-                .show();
-    }
-
-    private void showExtractionOptions() {
-
-        List<FileModel> selected = adapter.getSelectedFiles();
-        boolean hasFolderSelected = false;
-        for (FileModel f : selected) {
-            if (f.isDirectory) {
-                hasFolderSelected = true;
-                break;
-            }
-        }
-
-        List<String> optionsList = new ArrayList<>();
-        if (isInArchiveMode) {
-            optionsList.add("Extract Selected Files");
-            optionsList.add("Extract ALL Files");
-        } else if (hasFolderSelected) {
-            optionsList.add("Repack Selected Folder");
-        }
-
-        if (optionsList.isEmpty()) {
-            showToast("Tidak ada aksi tersedia.");
-            return;
-        }
-
-        String[] options = optionsList.toArray(new String[0]);
-        new AlertDialog.Builder(requireContext())
-                .setTitle("Batch Actions")
-                .setItems(options, (dialog, which) -> {
-                    String choice = options[which];
-                    if (choice.contains("Extract Selected")) {
-                        handleExtractSelected(selected);
-                    } else if (choice.contains("Extract ALL")) {
-                        handleExtractAll();
-                    } else if (choice.contains("Repack")) {
-                        for(FileModel f : selected) {
-                            if(f.isDirectory) {
-                                showRepackFormatDialog(f);
-                                break;
-                            }
-                        }
-                    }
-                })
-                .show();
-    }
-
-    private void handleExtractSelected(List<FileModel> selected) {
-        if (selected.isEmpty()) {
-            showToast("Pilih file atau folder dulu!");
-            return;
-        }
-
-        Set<String> uniquePathsToExtract = new HashSet<>();
-
-        for (FileModel f : selected) {
-            String fullItemPath = currentVirtualPath + f.name;
-            if (!f.isDirectory) {
-                uniquePathsToExtract.add(fullItemPath);
-            } else {
-                String folderPrefix = fullItemPath + "/";
-                for (String entry : rawArchiveData) {
-                    if (entry.startsWith(folderPrefix)) {
-                        uniquePathsToExtract.add(entry.split("\\|")[0]);
-                    }
-                }
-            }
-        }
-        List<String> finalPaths = new ArrayList<>(uniquePathsToExtract);
-
-        if (astManager.containsAstFiles(finalPaths)) {
-            astManager.configureAstExtraction(currentArchiveFile, finalPaths, (convertAst, language) -> {
-
-                checkScriptsAndExtract(finalPaths, convertAst, language);
-            });
-        } else {
-
-            checkScriptsAndExtract(finalPaths, false, null);
-        }
-    }
-
-    private void handleExtractAll() {
-        List<String> allPaths = new ArrayList<>();
-        for (String entry : rawArchiveData) {
-            allPaths.add(entry.split("\\|")[0]);
-        }
-
-        if (astManager.containsAstFiles(allPaths)) {
-
-            astManager.configureAstExtraction(currentArchiveFile, allPaths, (convertAst, language) -> {
-                checkScriptsAndExtract(allPaths, convertAst, language);
-            });
-        } else {
-
-            checkScriptsAndExtract(allPaths, false, null);
-        }
-    }
-
-    private void checkScriptsAndExtract(List<String> paths, boolean convertAst, String astLang) {
-        // 1. Cek SCN
-        if (scnManager.containsScnFiles(paths)) {
-            scnManager.configureScnExtraction(paths, (convertScn) -> {
-                checkKsAndExtract(paths, convertAst, astLang, convertScn);
-            });
-        } else {
-            checkKsAndExtract(paths, convertAst, astLang, false);
-        }
-    }
-
-    private void checkKsAndExtract(List<String> paths, boolean convertAst, String astLang, boolean convertScn) {
-        // 2. Cek KS
-        if (ksManager.containsKsFiles(paths)) {
-            ksManager.configureKsExtraction(paths, (convertKs) -> {
-                performExtraction(paths, convertAst, astLang, convertScn, convertKs);
-            });
-        } else {
-            performExtraction(paths, convertAst, astLang, convertScn, false);
-        }
-    }
-
-    private void performExtraction(List<String> internalPaths) {
-        performExtraction(internalPaths, false, null, false, false);
-    }
-
-
-    private void performExtraction(List<String> internalPaths, boolean convertAst, String astLanguage, boolean convertScn, boolean convertKs) {
-        if (internalPaths.isEmpty()) return;
-
-        if (currentArchiveFile == null) {
-            showToast("Error: Tidak ada arsip yang aktif.");
-            return;
-        }
-
-        File parentDir = currentArchiveFile.getParentFile();
-        String folderName = currentArchiveFile.getName().replaceFirst("[.][^.]+$", "");
-        File targetDir = new File(parentDir, "Gardroid_Extracted/" + folderName);
-        if (!targetDir.exists()) targetDir.mkdirs();
-        AlertDialog.Builder builder = new AlertDialog.Builder(requireContext());
-        builder.setTitle("Extracting...");
-        builder.setCancelable(false);
-        android.widget.LinearLayout layout = new android.widget.LinearLayout(requireContext());
-        layout.setOrientation(android.widget.LinearLayout.VERTICAL);
-        layout.setPadding(50, 40, 50, 10);
-        final android.widget.ProgressBar progressBar = new android.widget.ProgressBar(requireContext(), null, android.R.attr.progressBarStyleHorizontal);
-        progressBar.setMax(internalPaths.size());
-        layout.addView(progressBar);
-
-        final android.widget.TextView tvStatus = new android.widget.TextView(requireContext());
-        tvStatus.setText("Initializing...");
-        tvStatus.setPadding(0, 20, 0, 0);
-        layout.addView(tvStatus);
-
-        builder.setView(layout);
-        AlertDialog progressDialog = builder.create();
-        progressDialog.show();
-
-        new Thread(() -> {
-            long parserPointer = nativeLib.initParser(currentArchiveFile.getAbsolutePath());
-
-            if (parserPointer == 0) {
-                requireActivity().runOnUiThread(() -> {
-                    progressDialog.dismiss();
-                    showToast("Gagal init parser. File arsip mungkin rusak atau tidak didukung.");
-                });
-                return;
-            }
-
-            int successCount = 0;
-
-            long lastUpdateTime = 0;
-            for (int i = 0; i < internalPaths.size(); i++) {
-                String internalPath = internalPaths.get(i);
-                int progress = i + 1;
-
-                // [MODIFIKASI: Throttling UI Update (Maksimal update setiap 100ms)]
-                long currentTime = System.currentTimeMillis();
-                if (currentTime - lastUpdateTime > 100 || progress == internalPaths.size()) {
-                    lastUpdateTime = currentTime;
-                    requireActivity().runOnUiThread(() -> {
-                        progressBar.setProgress(progress);
-                        tvStatus.setText("Extracting (" + progress + " / " + internalPaths.size() + ")\n" + internalPath);
-                    });
-                }
-
-                File destFile = new File(targetDir, internalPath);
-
-                if (destFile.getParentFile() != null && !destFile.getParentFile().exists()) {
-                    destFile.getParentFile().mkdirs();
-                }
-
-                boolean ok = nativeLib.extractFileFromPointer(parserPointer, internalPath, destFile.getAbsolutePath());
-
-                if (ok) {
-                    successCount++;
-                    String destPath = destFile.getAbsolutePath();
-                    String lowerPath = destPath.toLowerCase();
-                    if (convertAst && lowerPath.endsWith(".ast") && astLanguage != null) {
-                        astManager.processAstFile(destPath, astLanguage);
-                    }
-                    else if (convertScn && lowerPath.endsWith(".scn")) {
-                        scnManager.processScnFile(destPath);
-                    }
-                    else if (convertKs && lowerPath.endsWith(".ks")) {
-                        ksManager.processKsFile(destPath); // EKSEKUSI KS DI SINI
-                    }
-                }
-            }
-
-
-            nativeLib.closeParser(parserPointer);
-
-            int finalSuccess = successCount;
-
-            requireActivity().runOnUiThread(() -> {
-                progressDialog.dismiss();
-                showToast("Selesai! " + finalSuccess + " file tersimpan di:\n" + targetDir.getAbsolutePath());
-
-                if (adapter != null) {
-                    adapter.setSelectionMode(false);
-                    // loadDirectory(currentVirtualPath);
-                }
-            });
-
-        }).start();
-    }
-
-    private void performRepack(List<FileModel> selectedFiles, String format) {
-        FileModel targetFolder = null;
-        for (FileModel f : selectedFiles) { if (f.isDirectory) { targetFolder = f; break; }}
-        if (targetFolder == null) return;
-
-        File sourceDir = targetFolder.file;
-        File parentDir = sourceDir.getParentFile();
-        File outputFile = new File(parentDir, sourceDir.getName() + "." + format);
-        AlertDialog.Builder builder = new AlertDialog.Builder(requireContext());
-        builder.setTitle("Repacking " + sourceDir.getName());
-        builder.setCancelable(false);
-
-        android.widget.LinearLayout layout = new android.widget.LinearLayout(requireContext());
-        layout.setOrientation(android.widget.LinearLayout.VERTICAL);
-        layout.setPadding(50, 40, 50, 10);
-
-        final android.widget.ProgressBar progressBar = new android.widget.ProgressBar(requireContext(), null, android.R.attr.progressBarStyleHorizontal);
-        progressBar.setIndeterminate(false);
-        layout.addView(progressBar);
-
-        final android.widget.TextView tvStatus = new android.widget.TextView(requireContext());
-        tvStatus.setText("Scanning files...");
-        layout.addView(tvStatus);
-
-        builder.setView(layout);
-        AlertDialog progressDialog = builder.create();
-        progressDialog.show();
-
-        new Thread(() -> {
-            boolean success = false;
-
-            NativeLib.RepackListener listener = (currentFile, current, total) -> {
-                requireActivity().runOnUiThread(() -> {
-                    if (progressBar.getMax() != total) progressBar.setMax(total);
-                    progressBar.setProgress(current);
-                    tvStatus.setText(String.format("%s\n(%d / %d)", currentFile, current, total));
-                });
-            };
-
-            if (format.equals("xp3")) {
-                success = nativeLib.repackXp3(sourceDir.getAbsolutePath(), outputFile.getAbsolutePath(), listener);
-            } else {
-                success = nativeLib.repackPfs(sourceDir.getAbsolutePath(), outputFile.getAbsolutePath(), listener);
-            }
-
-            boolean finalSuccess = success;
-            requireActivity().runOnUiThread(() -> {
-                progressDialog.dismiss();
-                if (finalSuccess) {
-                    showToast("Repack " + format.toUpperCase() + " Berhasil!");
-                    adapter.setSelectionMode(false);
-                    loadDirectory(currentDirectory);
-                } else {
-                    showToast("Repack Gagal.");
-                }
-            });
-        }).start();
-    }
 }

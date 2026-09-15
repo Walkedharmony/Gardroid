@@ -21,6 +21,7 @@ public class KsManager {
     }
 
     public boolean containsKsFiles(List<String> filePaths) {
+        if (!new SettingsConfig(context).isManagerEnabled(SettingsConfig.KEY_KS_MANAGER)) return false;
         for (String path : filePaths) {
             if (path.toLowerCase().endsWith(".ks")) return true;
         }
@@ -28,13 +29,12 @@ public class KsManager {
     }
 
     public void configureKsExtraction(List<String> filePaths, KsConfigCallback callback) {
-        new AlertDialog.Builder(context)
-                .setTitle("Kirikiri Script Detected")
-                .setMessage("File .ks (Kirikiri) ditemukan dalam arsip.\nConvert ke Text (.txt)?")
-                .setPositiveButton("Ya, Convert", (dialog, which) -> callback.onConfigComplete(true))
-                .setNegativeButton("Tidak", (dialog, which) -> callback.onConfigComplete(false))
-                .setCancelable(false)
-                .show();
+        if (!new SettingsConfig(context).isManagerEnabled(SettingsConfig.KEY_KS_MANAGER)) {
+            callback.onConfigComplete(false);
+            return;
+        }
+        // Jika setting ON, otomatis convert tanpa dialog
+        callback.onConfigComplete(true);
     }
 
     public void processKsFile(String extractedFilePath) {

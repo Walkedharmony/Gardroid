@@ -36,6 +36,13 @@ android {
             externalNativeBuild {
                 cmake {
                     cppFlags  ("-std=c++17 -frtti -fexceptions")
+                    val vcpkgRoot = System.getenv("VCPKG_ROOT")?.replace('\\', '/')
+                    val ndkDir = ndkDirectory.absolutePath.replace('\\', '/')
+                    arguments(
+                        "-DCMAKE_TOOLCHAIN_FILE=${project.projectDir.absolutePath.replace('\\', '/')}/vcpkg-android.cmake",
+                        "-DVCPKG_CHAINLOAD_TOOLCHAIN_FILE=${ndkDir}/build/cmake/android.toolchain.cmake",
+                        "-DVCPKG_ROOT=${vcpkgRoot}"
+                    )
                 }
             }
         }

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <attr name="colorFolderText" format="color" />
+    <attr name="colorFolderBg" format="color" />
+    
+    <attr name="colorArchiveText" format="color" />
+    <attr name="colorArchiveBg" format="color" />
+    
+    <attr name="colorImageText" format="color" />
+    <attr name="colorImageBg" format="color" />
+    
+    <attr name="colorScriptText" format="color" />
+    <attr name="colorScriptBg" format="color" />
+    
+    <attr name="colorAudioText" format="color" />
+    <attr name="colorAudioBg" format="color" />
+    
+    <attr name="colorDefaultText" format="color" />
+    <attr name="colorDefaultBg" format="color" />
+</resources>

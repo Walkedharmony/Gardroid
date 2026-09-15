@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="?attr/colorSurfaceContainer"
+    android:orientation="vertical"
+    android:padding="20dp">
+
+    <!-- HEADER -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="16dp">
+        
+        <TextView
+            android:id="@+id/tvPreviewTag"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="IMAGE PREVIEW"
+            android:textColor="?attr/colorPrimary"
+            android:background="?attr/colorPrimaryContainer"
+            android:paddingHorizontal="8dp"
+            android:paddingVertical="4dp"
+            android:textSize="10sp"
+            android:textStyle="bold"
+            android:fontFamily="monospace"/>
+            
+        <TextView
+            android:id="@+id/tvPreviewFilename"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="filename.tlg"
+            android:layout_marginStart="12dp"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="?attr/colorOnSurface"
+            android:ellipsize="middle"
+            android:singleLine="true"/>
+            
+        <ImageButton
+            android:id="@+id/btnClosePreview"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:src="@android:drawable/ic_menu_close_clear_cancel"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            app:tint="?attr/colorOnSurfaceVariant"/>
+    </LinearLayout>
+    
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="?attr/colorOutlineVariant"
+        android:layout_marginBottom="16dp"/>
+
+    <!-- MIDDLE CONTAINER -->
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="match_parent"
+        android:layout_height="250dp"
+        app:cardBackgroundColor="#0F172A"
+        app:cardCornerRadius="16dp"
+        app:cardElevation="0dp"
+        app:strokeWidth="1dp"
+        app:strokeColor="#1AFFFFFF">
+        
+        <ImageView
+            android:id="@+id/ivImagePreview"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="fitCenter"
+            android:visibility="gone"/>
+            
+        <ScrollView
+            android:id="@+id/svScriptPreview"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:padding="12dp"
+            android:background="#99000000"
+            android:visibility="gone">
+            <TextView
+                android:id="@+id/tvScriptPreview"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:textSize="12sp"
+                android:lineSpacingExtra="4dp"
+                android:textColor="#CBD5E1"/>
+        </ScrollView>
+        
+        <include layout="@layout/layout_audio_preview"
+            android:id="@+id/audioPreviewContainer"
+            android:visibility="gone"/>
+    </com.google.android.material.card.MaterialCardView>
+
+    <!-- BOTTOM INFO BOX -->
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:layout_marginBottom="16dp"
+        app:cardBackgroundColor="?attr/colorSurfaceVariant"
+        app:cardCornerRadius="12dp"
+        app:cardElevation="0dp">
+        
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+            
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+                <TextView
+                    android:id="@+id/tvPreviewResolution"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Resolusi: -"
+                    android:textSize="13sp"
+                    android:textColor="?attr/colorOnSurfaceVariant"/>
+                <TextView
+                    android:id="@+id/tvPreviewFormat"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Format Asli: -"
+                    android:textSize="13sp"
+                    android:textColor="?attr/colorOnSurfaceVariant"/>
+            </LinearLayout>
+            
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="8dp">
+                <TextView
+                    android:id="@+id/tvPreviewSize"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Ukuran: -"
+                    android:textSize="13sp"
+                    android:textColor="?attr/colorOnSurfaceVariant"/>
+                <TextView
+                    android:id="@+id/tvPreviewStatus"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Status: -"
+                    android:textSize="13sp"
+                    android:textColor="?attr/colorOnSurfaceVariant"
+                    android:visibility="gone"/>
+            </LinearLayout>
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+
+    <!-- EXTRACT BUTTON -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnPreviewAction"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:text="Convert to PNG"
+        app:icon="@drawable/ic_extract"
+        app:iconGravity="textStart"
+        app:cornerRadius="16dp"
+        style="@style/Widget.Material3.Button.TonalButton"/>
+
+</LinearLayout>

@@ -1,14 +1,39 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <style name="Theme.Gardroid" parent="Theme.Material3.DayNight.NoActionBar">
-
-        <item name="colorPrimary">@color/purple_200</item>
-        <item name="colorPrimaryVariant">@color/purple_700</item>
-        <item name="colorOnPrimary">@color/black</item>
-
-        <item name="colorSecondary">@color/teal_200</item>
-        <item name="colorSecondaryVariant">@color/teal_200</item>
-        <item name="colorOnSecondary">@color/black</item>
-
-        <item name="android:statusBarColor">?attr/colorPrimaryVariant</item>
+    <style name="Theme.Gardroid" parent="Base.Theme.Gardroid">
+        <!-- Primary brand color. -->
+        <item name="colorPrimary">@color/md_theme_dark_primary</item>
+        <item name="colorOnPrimary">@color/md_theme_dark_onPrimary</item>
+        <item name="colorPrimaryContainer">@color/md_theme_dark_primaryContainer</item>
+        <item name="colorOnPrimaryContainer">@color/md_theme_dark_onPrimaryContainer</item>
+        
+        <!-- Secondary brand color. -->
+        <item name="colorSecondary">@color/md_theme_dark_secondary</item>
+        <item name="colorOnSecondary">@color/md_theme_dark_onSecondary</item>
+        
+        <!-- Background colors -->
+        <item name="android:colorBackground">@color/md_theme_dark_background</item>
+        <item name="colorOnBackground">@color/md_theme_dark_onBackground</item>
+        <item name="colorSurface">@color/md_theme_dark_surface</item>
+        <item name="colorOnSurface">@color/md_theme_dark_onSurface</item>
+        <item name="colorSurfaceVariant">@color/md_theme_dark_surfaceVariant</item>
+        <item name="colorOnSurfaceVariant">@color/md_theme_dark_onSurfaceVariant</item>
+        
+        <!-- Status bar color. -->
+        <item name="android:statusBarColor">?attr/colorSurface</item>
+        <item name="android:windowLightStatusBar">false</item>
+        
+        <!-- Semantic File Colors (Dark) -->
+        <item name="colorFolderText">@color/folder_text_dark</item>
+        <item name="colorFolderBg">@color/folder_bg_dark</item>
+        <item name="colorArchiveText">@color/archive_text_dark</item>
+        <item name="colorArchiveBg">@color/archive_bg_dark</item>
+        <item name="colorImageText">@color/image_text_dark</item>
+        <item name="colorImageBg">@color/image_bg_dark</item>
+        <item name="colorScriptText">@color/script_text_dark</item>
+        <item name="colorScriptBg">@color/script_bg_dark</item>
+        <item name="colorAudioText">@color/audio_text_dark</item>
+        <item name="colorAudioBg">@color/audio_bg_dark</item>
+        <item name="colorDefaultText">@color/default_text_dark</item>
+        <item name="colorDefaultBg">@color/default_bg_dark</item>
     </style>
 </resources>

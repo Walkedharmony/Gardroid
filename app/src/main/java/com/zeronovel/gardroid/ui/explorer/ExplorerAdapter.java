@@ -20,7 +20,10 @@ public class ExplorerAdapter extends RecyclerView.Adapter<ExplorerAdapter.FileVi
 
     public interface OnFileClickListener {
         void onFileClick(FileModel file);
+
         void onMoreClick(FileModel file);
+
+        void onSelectionChanged(int count);
     }
 
     public ExplorerAdapter(OnFileClickListener listener) {
@@ -36,35 +39,41 @@ public class ExplorerAdapter extends RecyclerView.Adapter<ExplorerAdapter.FileVi
         isSelectionMode = active;
 
         if (!active) {
-            for (FileModel f : fileList) f.isSelected = false;
+            for (FileModel f : fileList)
+                f.isSelected = false;
         }
         notifyDataSetChanged();
+        listener.onSelectionChanged(getSelectedFiles().size());
     }
 
     public List<FileModel> getSelectedFiles() {
         List<FileModel> selected = new ArrayList<>();
         for (FileModel f : fileList) {
-            if (f.isSelected) selected.add(f);
+            if (f.isSelected)
+                selected.add(f);
         }
         return selected;
     }
 
     public void selectAll() {
-        for (FileModel f : fileList) f.isSelected = true;
+        for (FileModel f : fileList)
+            f.isSelected = true;
         notifyDataSetChanged();
+        listener.onSelectionChanged(getSelectedFiles().size());
     }
 
     public void deselectAll() {
-        for (FileModel f : fileList) f.isSelected = false;
+        for (FileModel f : fileList)
+            f.isSelected = false;
         notifyDataSetChanged();
+        listener.onSelectionChanged(getSelectedFiles().size());
     }
 
     @NonNull
     @Override
     public FileViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         ItemFileBinding binding = ItemFileBinding.inflate(
-                LayoutInflater.from(parent.getContext()), parent, false
-        );
+                LayoutInflater.from(parent.getContext()), parent, false);
         return new FileViewHolder(binding);
     }
 
@@ -86,59 +95,66 @@ public class ExplorerAdapter extends RecyclerView.Adapter<ExplorerAdapter.FileVi
             this.binding = binding;
         }
 
+        private int getThemeColor(int attrResId) {
+            android.util.TypedValue typedValue = new android.util.TypedValue();
+            binding.getRoot().getContext().getTheme().resolveAttribute(attrResId, typedValue, true);
+            return typedValue.data;
+        }
+
         public void bind(FileModel item) {
             binding.tvName.setText(item.name);
             int iconRes;
-            int iconColor;
+            int colorBgAttr;
+            int colorTextAttr;
 
             if (item.isDirectory) {
-                iconRes = R.drawable.ic_folder_open;
-                iconColor = 0xFFFFC107;
+                iconRes = R.drawable.ic_folder;
+                colorBgAttr = R.attr.colorFolderBg;
+                colorTextAttr = R.attr.colorFolderText;
                 binding.tvDetails.setText("Folder");
-            }
-            else if (item.isXp3 || item.isPfs || item.isBgi) {
-                iconRes = R.drawable.xp3_file;
-                iconColor = 0xFF9C27B0;
-                binding.tvDetails.setText("Garbro Archive");
-            }
-            else {
-
+            } else if (item.isXp3 || item.isPfs || item.isBgi) {
+                iconRes = R.drawable.ic_archive;
+                colorBgAttr = R.attr.colorArchiveBg;
+                colorTextAttr = R.attr.colorArchiveText;
+                binding.tvDetails.setText("Archive");
+            } else {
                 String name = item.name.toLowerCase();
                 long sizeKb = item.size / 1024;
                 binding.tvDetails.setText(sizeKb + " KB");
 
-                if (name.endsWith(".png") || name.endsWith(".jpg") || name.endsWith(".bmp")) {
-                    iconRes = R.drawable.ic_file_image;
-                    iconColor = 0xFF03A9F4;
+                if (name.endsWith(".png") || name.endsWith(".jpg") || name.endsWith(".bmp") || name.endsWith(".tlg")) {
+                    iconRes = R.drawable.ic_image;
+                    colorBgAttr = R.attr.colorImageBg;
+                    colorTextAttr = R.attr.colorImageText;
                 } else if (name.endsWith(".ogg") || name.endsWith(".wav") || name.endsWith(".mp3")) {
-                    iconRes = R.drawable.ic_file_audio;
-                    iconColor = 0xFFE91E63;
+                    iconRes = R.drawable.ic_text;
+                    colorBgAttr = R.attr.colorAudioBg;
+                    colorTextAttr = R.attr.colorAudioText;
                 } else if (name.endsWith(".tjs") || name.endsWith(".ks") ||
                         name.endsWith(".txt") || name.endsWith(".ini") ||
-                        name.endsWith(".lua")) {
-                    iconRes = R.drawable.ic_file_code;
-                    iconColor = 0xFF4CAF50;
-
+                        name.endsWith(".lua") || name.endsWith(".scn") || name.endsWith(".ast")) {
+                    iconRes = R.drawable.ic_text;
+                    colorBgAttr = R.attr.colorScriptBg;
+                    colorTextAttr = R.attr.colorScriptText;
                 } else {
-                    iconRes = android.R.drawable.ic_menu_sort_by_size;
-                    iconColor = 0xFF757575;
+                    iconRes = R.drawable.ic_text;
+                    colorBgAttr = R.attr.colorDefaultBg;
+                    colorTextAttr = R.attr.colorDefaultText;
                 }
             }
 
             binding.ivIcon.setImageResource(iconRes);
-            binding.ivIcon.setColorFilter(iconColor);
+            binding.ivIconContainer.setCardBackgroundColor(getThemeColor(colorBgAttr));
+            binding.ivIcon.setColorFilter(getThemeColor(colorTextAttr));
 
             binding.getRoot().setActivated(item.isSelected);
 
-
             if (item.isSelected) {
-                binding.getRoot().setBackgroundColor(0x33BB86FC);
                 binding.cbSelect.setVisibility(View.VISIBLE);
                 binding.btnMore.setVisibility(View.GONE);
                 binding.cbSelect.setOnCheckedChangeListener(null);
                 binding.cbSelect.setChecked(true);
             } else {
-                binding.getRoot().setBackgroundResource(0);
                 binding.cbSelect.setVisibility(View.GONE);
                 binding.btnMore.setVisibility(View.VISIBLE);
             }
@@ -148,6 +164,7 @@ public class ExplorerAdapter extends RecyclerView.Adapter<ExplorerAdapter.FileVi
 
                     item.isSelected = !item.isSelected;
                     notifyItemChanged(getAdapterPosition());
+                    listener.onSelectionChanged(getSelectedFiles().size());
                 } else {
 
                     listener.onFileClick(item);
@@ -155,13 +172,14 @@ public class ExplorerAdapter extends RecyclerView.Adapter<ExplorerAdapter.FileVi
             });
 
             binding.getRoot().setOnLongClickListener(v -> {
-               // if (!item.isVirtual) {
-                //    return false;
-                //}
+                // if (!item.isVirtual) {
+                // return false;
+                // }
                 if (!isSelectionMode) {
                     setSelectionMode(true);
                     item.isSelected = true;
                     notifyDataSetChanged();
+                    listener.onSelectionChanged(getSelectedFiles().size());
                     return true;
                 }
                 return false;
@@ -170,7 +188,7 @@ public class ExplorerAdapter extends RecyclerView.Adapter<ExplorerAdapter.FileVi
             binding.cbSelect.setOnClickListener(v -> {
                 if (isSelectionMode) {
                     item.isSelected = binding.cbSelect.isChecked();
-
+                    listener.onSelectionChanged(getSelectedFiles().size());
                 }
             });
 

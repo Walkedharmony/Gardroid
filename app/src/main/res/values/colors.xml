@@ -1,13 +1,68 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="purple_200">#FFBB86FC</color>
-    <color name="purple_500">#FF6200EE</color>
-    <color name="purple_700">#FF3700B3</color>
-    <color name="teal_200">#FF03DAC5</color>
-    <color name="teal_700">#FF018786</color>
+    <!-- Deep Blue Palette -->
+    <color name="md_theme_light_primary">#0061A4</color>
+    <color name="md_theme_light_onPrimary">#FFFFFF</color>
+    <color name="md_theme_light_primaryContainer">#D1E4FF</color>
+    <color name="md_theme_light_onPrimaryContainer">#001D36</color>
+    <color name="md_theme_light_secondary">#535F70</color>
+    <color name="md_theme_light_onSecondary">#FFFFFF</color>
+    <color name="md_theme_light_background">#FDFBFF</color>
+    <color name="md_theme_light_onBackground">#1A1C1E</color>
+    <color name="md_theme_light_surface">#FDFBFF</color>
+    <color name="md_theme_light_onSurface">#1A1C1E</color>
+    <color name="md_theme_light_surfaceVariant">#DFE2EB</color>
+    <color name="md_theme_light_onSurfaceVariant">#43474E</color>
+
+    <!-- Dark Mode Palette (Graphite & Light Blue) -->
+    <color name="md_theme_dark_primary">#9ECAFF</color>
+    <color name="md_theme_dark_onPrimary">#003258</color>
+    <color name="md_theme_dark_primaryContainer">#00497D</color>
+    <color name="md_theme_dark_onPrimaryContainer">#D1E4FF</color>
+    <color name="md_theme_dark_secondary">#BBC7DB</color>
+    <color name="md_theme_dark_onSecondary">#253140</color>
+    <color name="md_theme_dark_background">#1A1C1E</color>
+    <color name="md_theme_dark_onBackground">#E2E2E6</color>
+    <color name="md_theme_dark_surface">#1A1C1E</color>
+    <color name="md_theme_dark_onSurface">#E2E2E6</color>
+    <color name="md_theme_dark_surfaceVariant">#43474E</color>
+    <color name="md_theme_dark_onSurfaceVariant">#C3C7CF</color>
+    
+    <!-- Old Icon colors (fallback) -->
+    <color name="icon_folder">#FFCA28</color>
+    <color name="icon_archive">#EF5350</color>
+    <color name="icon_image">#42A5F5</color>
+    <color name="icon_text">#78909C</color>
+    <color name="icon_default">#B0BEC5</color>
+    
+    <!-- Icon colors (Light) -->
+    <color name="folder_text_light">#D97706</color>
+    <color name="folder_bg_light">#FEF3C7</color>
+    <color name="archive_text_light">#E11D48</color>
+    <color name="archive_bg_light">#FFE4E6</color>
+    <color name="image_text_light">#0284C7</color>
+    <color name="image_bg_light">#E0F2FE</color>
+    <color name="script_text_light">#059669</color>
+    <color name="script_bg_light">#D1FAE5</color>
+    <color name="audio_text_light">#D97706</color>
+    <color name="audio_bg_light">#FEF3C7</color>
+    <color name="default_text_light">#475569</color>
+    <color name="default_bg_light">#F1F5F9</color>
+
+    <!-- Icon colors (Dark) -->
+    <color name="folder_text_dark">#FCD34D</color>
+    <color name="folder_bg_dark">#26FBBF24</color>
+    <color name="archive_text_dark">#FDA4AF</color>
+    <color name="archive_bg_dark">#26F43F5E</color>
+    <color name="image_text_dark">#7DD3FC</color>
+    <color name="image_bg_dark">#2638BDF8</color>
+    <color name="script_text_dark">#6EE7B7</color>
+    <color name="script_bg_dark">#2634D399</color>
+    <color name="audio_text_dark">#FCD34D</color>
+    <color name="audio_bg_dark">#26F59E0B</color>
+    <color name="default_text_dark">#CBD5E1</color>
+    <color name="default_bg_dark">#1E293B</color>
+
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
-    <color name="purple_200_transparent">#80BB86FC</color>
-    <color name="purple_200_20">#33BB86FC</color>
-
 </resources>

@@ -22,6 +22,7 @@ public class ScnManager {
     }
 
     public boolean containsScnFiles(List<String> filePaths) {
+        if (!new SettingsConfig(context).isManagerEnabled(SettingsConfig.KEY_SCN_MANAGER)) return false;
         for (String path : filePaths) {
             if (path.toLowerCase().endsWith(".scn")) return true;
         }
@@ -29,17 +30,12 @@ public class ScnManager {
     }
 
     public void configureScnExtraction(List<String> filePaths, ScnConfigCallback callback) {
-        new AlertDialog.Builder(context)
-                .setTitle("Scenario Script Detected")
-                .setMessage("File .scn ditemukan dalam arsip.\nConvert ke Text (.txt)?")
-                .setPositiveButton("Ya, Convert", (dialog, which) -> {
-                    callback.onConfigComplete(true);
-                })
-                .setNegativeButton("Tidak", (dialog, which) -> {
-                    callback.onConfigComplete(false);
-                })
-                .setCancelable(false)
-                .show();
+        if (!new SettingsConfig(context).isManagerEnabled(SettingsConfig.KEY_SCN_MANAGER)) {
+            callback.onConfigComplete(false);
+            return;
+        }
+        // Jika setting ON, otomatis convert tanpa dialog
+        callback.onConfigComplete(true);
     }
 
     public void processScnFile(String extractedFilePath) {

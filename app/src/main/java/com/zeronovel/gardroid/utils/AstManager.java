@@ -28,6 +28,7 @@ public class AstManager {
     }
 
     public boolean containsAstFiles(List<String> filePaths) {
+        if (!new SettingsConfig(context).isManagerEnabled(SettingsConfig.KEY_AST_MANAGER)) return false;
         for (String path : filePaths) {
             if (path.toLowerCase().endsWith(".ast")) return true;
         }
@@ -35,6 +36,10 @@ public class AstManager {
     }
 
     public void configureAstExtraction(File archiveFile, List<String> filePaths, AstConfigCallback callback) {
+        if (!new SettingsConfig(context).isManagerEnabled(SettingsConfig.KEY_AST_MANAGER)) {
+            callback.onConfigComplete(false, null);
+            return;
+        }
 
         List<String> candidates = new ArrayList<>();
         for (String path : filePaths) {
@@ -49,17 +54,8 @@ public class AstManager {
             return;
         }
 
-        new AlertDialog.Builder(context)
-                .setTitle("Scenario Script Detected")
-                .setMessage("File .ast ditemukan. Convert ke Text (.txt)?")
-                .setPositiveButton("Ya, Convert", (dialog, which) -> {
-                    scanAndSelectLanguage(archiveFile, candidates, callback);
-                })
-                .setNegativeButton("Tidak", (dialog, which) -> {
-                    callback.onConfigComplete(false, null);
-                })
-                .setCancelable(false)
-                .show();
+        // Langsung scan dan pilih bahasa tanpa konfirmasi awal
+        scanAndSelectLanguage(archiveFile, candidates, callback);
     }
 
     private void scanAndSelectLanguage(File archiveFile, List<String> candidates, AstConfigCallback callback) {

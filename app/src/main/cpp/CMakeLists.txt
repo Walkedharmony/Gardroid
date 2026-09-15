@@ -21,13 +21,16 @@ project("gardroid")
 # is preferred for the same purpose.
 #
 # In order to load a library into your app from Java/Kotlin, you must call
-# System.loadLibrary() and pass the name of the library defined here;
-# for GameActivity/NativeActivity derived applications, the same library name must be
-# used in the AndroidManifest.xml file.
 add_library(${CMAKE_PROJECT_NAME} SHARED
-    formats/Xp3Parser.cpp
+        bridge/jni_archive_bridge.cpp
+        bridge/jni_text_bridge.cpp
+        bridge/jni_audio_bridge.cpp
+        bridge/ArchiveFactory.cpp
+        utils/StringUtils.cpp
+        formats/Xp3Parser.cpp
         formats/Xp3Packer.cpp
         utils/TlgDecoder.cpp
+        utils/AudioDecoder.cpp
         utils/BgiImageDecoder.cpp
         utils/AstParser.cpp
         utils/PSBFILE/compress.c
@@ -38,14 +41,17 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         formats/ArcParser.cpp
         formats/PfsParser.cpp
         formats/BgiParser.cpp
-        formats/PfsPacker.cpp
-    native-lib.cpp)
+        formats/PfsPacker.cpp)
 
 # Specifies libraries CMake should link to your target library. You
 # can link libraries from various origins, such as libraries defined in this
 # build script, prebuilt third-party libraries, or Android system libraries.
 find_package(ZLIB REQUIRED)
+find_package(OpusFile CONFIG REQUIRED)
 target_link_libraries(${CMAKE_PROJECT_NAME}
     ZLIB::ZLIB
+    Ogg::ogg
+    Opus::opus
+    OpusFile::opusfile
     android
     log)

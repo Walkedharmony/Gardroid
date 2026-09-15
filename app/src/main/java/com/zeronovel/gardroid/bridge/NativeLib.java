@@ -17,6 +17,7 @@ public class NativeLib {
     public native byte[] getFileBuffer(String archivePath, String internalPath);
 
     public native int[] getTlgPreview(String archivePath, String internalPath);
+    public native int[] getTlgPreviewOffline(String filePath);
 
     public native int[] getBgiPreview(String archivePath, String internalPath);
     public native boolean extractFile(String archivePath, String internalPath, String outputPath);
@@ -36,4 +37,11 @@ public class NativeLib {
     public interface RepackListener {
         void onProgress(String currentFile, int current, int total);
     }
+
+    // --- Audio Decoder JNI ---
+    public native long nativeOpenAudio(String path);
+    public native NativeAudioInfo nativeGetAudioInfo(long handle);
+    public native int nativeDecodeAudio(long handle, short[] buffer, int maxSamples);
+    public native boolean nativeSeekAudio(long handle, long sampleOffset);
+    public native void nativeCloseAudio(long handle);
 }

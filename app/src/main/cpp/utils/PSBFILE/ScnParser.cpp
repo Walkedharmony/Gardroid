@@ -40,6 +40,10 @@ int ScnParser::extractText(const std::string& inputPath, const std::string& outp
     f.read((char*)buffer.data(), size);
     f.close();
 
+    if (size < 4 || strncmp((char*)buffer.data(), "PSB\0", 4) != 0) {
+        LOGE("Invalid PSB file signature or file too small.");
+        return 0;
+    }
 
     try {
         psb_t psb(buffer.data());
